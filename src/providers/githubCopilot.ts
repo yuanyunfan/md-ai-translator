@@ -83,11 +83,16 @@ async function selectCopilotModels(modelId: string): Promise<vscode.LanguageMode
     );
   }
 
-  const requestedId = modelId.trim();
+  const requestedId = normalizeModelPreference(modelId);
   const requestedModels = requestedId
     ? await vscode.lm.selectChatModels({ vendor: "copilot", id: requestedId })
     : [];
   return uniqueModels([...requestedModels, ...sortFallbackModels(allModels, requestedId)]);
+}
+
+function normalizeModelPreference(modelId: string): string {
+  const trimmed = modelId.trim();
+  return trimmed === "auto" ? "" : trimmed;
 }
 
 function sortFallbackModels(models: vscode.LanguageModelChat[], requestedId: string): vscode.LanguageModelChat[] {

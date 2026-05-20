@@ -68,7 +68,7 @@ export function readExtensionConfig(resource?: vscode.Uri): ExtensionConfig {
       model: cfg.get("anthropic.model", "claude-3-5-sonnet-latest")
     },
     githubCopilot: {
-      modelId: cfg.get("githubCopilot.modelId", "")
+      modelId: cfg.get("githubCopilot.modelId", "auto")
     }
   };
 }

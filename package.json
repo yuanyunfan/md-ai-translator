@@ -127,9 +127,25 @@
         },
         "mdAiTranslator.githubCopilot.modelId": {
           "type": "string",
-          "default": "",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "gpt-4.1",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-5.2",
+            "gpt-5.5"
+          ],
+          "enumDescriptions": [
+            "Automatically choose the best available GitHub Copilot model for translation.",
+            "Prefer GitHub Copilot's GPT-4.1 model.",
+            "Prefer GitHub Copilot's GPT-4o model.",
+            "Prefer GitHub Copilot's GPT-4o mini model.",
+            "Prefer GitHub Copilot's GPT-5.2 model when available.",
+            "Prefer GitHub Copilot's GPT-5.5 model when available."
+          ],
           "scope": "window",
-          "description": "GitHub Copilot language model ID. Leave empty to use the first available Copilot model, or run 'Markdown AI Translator: Select GitHub Copilot Model'."
+          "description": "GitHub Copilot model preference. Use auto for fallback-based selection, or run 'Markdown AI Translator: Connect GitHub Copilot' to choose from currently available models."
         },
         "mdAiTranslator.request.timeoutMs": {
           "type": "number",

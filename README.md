@@ -23,7 +23,7 @@ Markdown AI Translator is a VS Code extension that opens a side-by-side translat
 
 - `mdAiTranslator.targetLanguage`: target translation language.
 - `mdAiTranslator.activeProvider`: `openai`, `azureOpenAI`, `anthropic`, or `githubCopilot`.
-- `mdAiTranslator.githubCopilot.modelId`: selected GitHub Copilot language model ID.
+- `mdAiTranslator.githubCopilot.modelId`: GitHub Copilot model dropdown. Use `auto` for fallback-based selection.
 - `mdAiTranslator.openai.baseUrl` and `mdAiTranslator.openai.model`.
 - `mdAiTranslator.azureOpenAI.endpoint`, `deployment`, and `apiVersion`.
 - `mdAiTranslator.anthropic.baseUrl` and `mdAiTranslator.anthropic.model`.
