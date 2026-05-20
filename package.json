@@ -1,0 +1,177 @@
+{
+  "name": "md-ai-translator",
+  "displayName": "Markdown AI Translator",
+  "description": "Translate Markdown documents with configurable AI providers in a side-by-side VS Code preview.",
+  "version": "0.1.0",
+  "publisher": "yuanyunfan",
+  "private": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onCommand:mdAiTranslator.openPreview",
+    "onCommand:mdAiTranslator.refreshPreview",
+    "onCommand:mdAiTranslator.setApiKey",
+    "onCommand:mdAiTranslator.clearApiKey"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p .",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --sourcemap",
+    "build": "npm run compile && npm run bundle",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test \"dist/test/**/*.test.js\"",
+    "vscode:prepublish": "npm run build"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^20.19.0",
+    "@types/vscode": "^1.95.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.9.3"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdAiTranslator.openPreview",
+        "title": "Open AI Translation Preview",
+        "category": "Markdown AI Translator",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "mdAiTranslator.refreshPreview",
+        "title": "Refresh AI Translation Preview",
+        "category": "Markdown AI Translator",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mdAiTranslator.setApiKey",
+        "title": "Set AI Provider API Key",
+        "category": "Markdown AI Translator"
+      },
+      {
+        "command": "mdAiTranslator.clearApiKey",
+        "title": "Clear AI Provider API Key",
+        "category": "Markdown AI Translator"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mdAiTranslator.openPreview",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@99"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mdAiTranslator.openPreview",
+          "when": "resourceLangId == markdown"
+        },
+        {
+          "command": "mdAiTranslator.refreshPreview"
+        },
+        {
+          "command": "mdAiTranslator.setApiKey"
+        },
+        {
+          "command": "mdAiTranslator.clearApiKey"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Markdown AI Translator",
+      "properties": {
+        "mdAiTranslator.targetLanguage": {
+          "type": "string",
+          "default": "Simplified Chinese",
+          "scope": "resource",
+          "description": "Target language used when translating Markdown documents."
+        },
+        "mdAiTranslator.activeProvider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "azureOpenAI",
+            "anthropic"
+          ],
+          "default": "openai",
+          "scope": "window",
+          "description": "AI provider used for Markdown translation."
+        },
+        "mdAiTranslator.request.timeoutMs": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 1000,
+          "scope": "window",
+          "description": "Timeout in milliseconds for each AI translation request."
+        },
+        "mdAiTranslator.request.maxChunkChars": {
+          "type": "number",
+          "default": 6000,
+          "minimum": 1000,
+          "maximum": 30000,
+          "scope": "resource",
+          "description": "Maximum Markdown characters sent in a single translation request."
+        },
+        "mdAiTranslator.request.maxOutputTokens": {
+          "type": "number",
+          "default": 8192,
+          "minimum": 256,
+          "maximum": 32768,
+          "scope": "window",
+          "description": "Maximum output tokens requested from providers that require an explicit limit."
+        },
+        "mdAiTranslator.openai.baseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "scope": "machine-overridable",
+          "description": "OpenAI-compatible API base URL."
+        },
+        "mdAiTranslator.openai.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "scope": "window",
+          "description": "OpenAI-compatible chat model used for translation."
+        },
+        "mdAiTranslator.azureOpenAI.endpoint": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Azure OpenAI resource endpoint, for example https://example.openai.azure.com."
+        },
+        "mdAiTranslator.azureOpenAI.deployment": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Azure OpenAI deployment name."
+        },
+        "mdAiTranslator.azureOpenAI.apiVersion": {
+          "type": "string",
+          "default": "2024-10-21",
+          "scope": "window",
+          "description": "Azure OpenAI chat completions API version."
+        },
+        "mdAiTranslator.anthropic.baseUrl": {
+          "type": "string",
+          "default": "https://api.anthropic.com",
+          "scope": "machine-overridable",
+          "description": "Anthropic API base URL."
+        },
+        "mdAiTranslator.anthropic.model": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-latest",
+          "scope": "window",
+          "description": "Anthropic model used for translation."
+        }
+      }
+    }
+  }
+}
