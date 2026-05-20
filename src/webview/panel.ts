@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { providerLabels, providerSecretKey, readExtensionConfig } from "../config";
+import { logError, logInfo, showLogOutput } from "../logging";
 import { ProviderError } from "../providers/http";
 import { createProvider } from "../providers";
 import { translateMarkdownDocument } from "../translation/translator";
@@ -168,7 +169,12 @@ class TranslationPreviewPanel {
     }
 
     try {
-      const provider = createProvider(config, apiKey);
+      logInfo(
+        `Starting translation for ${this.documentName}; provider=${config.activeProvider}; target=${config.targetLanguage}; maxChunkChars=${config.request.maxChunkChars}`
+      );
+      const provider = createProvider(config, apiKey, {
+        languageModelAccessInformation: this.context.languageModelAccessInformation
+      });
       const translatedMarkdown = await translateMarkdownDocument({
         markdown: document.getText(),
         targetLanguage: config.targetLanguage,
@@ -197,18 +203,21 @@ class TranslationPreviewPanel {
         statusText: "Translation ready",
         statusKind: "success"
       };
+      logInfo(`Translation ready for ${this.documentName}.`);
       this.postState();
     } catch (error) {
       if (this.runId !== currentRun) {
         return;
       }
+      logError(`Translation failed for ${this.documentName}: ${toUserMessage(error)}`);
       this.state = {
         ...this.state,
         translatedHtml: "",
-        statusText: toUserMessage(error),
+        statusText: `${toUserMessage(error)} See Output: Markdown AI Translator.`,
         statusKind: "error"
       };
       this.postState();
+      showLogOutput();
     }
   }
 

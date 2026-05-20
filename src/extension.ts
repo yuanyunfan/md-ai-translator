@@ -1,11 +1,15 @@
 import * as vscode from "vscode";
 import { credentialProviderIds, providerLabels, providerSecretKey, readExtensionConfig } from "./config";
+import { initializeLogger, logInfo } from "./logging";
+import { isUsableCopilotChatModel } from "./providers/githubCopilot";
 import type { ProviderId } from "./providers/types";
 import { TranslationPreviewManager } from "./webview/panel";
 
 let manager: TranslationPreviewManager | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
+  initializeLogger(context);
+  logInfo("Extension activated.");
   manager = new TranslationPreviewManager(context);
 
   context.subscriptions.push(
@@ -146,7 +150,9 @@ async function signInToGitHubForCopilot(): Promise<vscode.AuthenticationSession 
 }
 
 async function selectCopilotModel(accountLabel: string): Promise<void> {
-  const models = await vscode.lm.selectChatModels({ vendor: "copilot" });
+  const models = (await vscode.lm.selectChatModels({ vendor: "copilot" }))
+    .filter(isUsableCopilotChatModel)
+    .sort((a, b) => a.name.localeCompare(b.name));
   if (models.length === 0) {
     vscode.window.showWarningMessage(
       `Signed in to GitHub as ${accountLabel}, but no GitHub Copilot language models are available. Install GitHub Copilot, sign in to Copilot Chat, and make sure your account has Copilot access.`

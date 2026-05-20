@@ -38,6 +38,10 @@ API keys are configured with commands:
 
 GitHub Copilot does not require an API key in this extension. Use `Markdown AI Translator: Connect GitHub Copilot` to open the GitHub browser sign-in flow, then select one of the Copilot language models exposed by VS Code. If you choose GitHub Copilot from the API key provider list, the extension opens the same connection flow instead of asking for a key.
 
+When installing or updating a local VSIX, reload the active VS Code window before retrying translation. VS Code keeps already activated extension code in the running extension host until the window reloads.
+
+If Copilot translation fails, open `Output: Markdown AI Translator` to see the selected model, access state, and provider error.
+
 ## Development
 
 ```bash

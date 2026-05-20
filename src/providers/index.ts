@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import type { ExtensionConfig } from "../config";
 import { createAnthropicProvider } from "./anthropic";
 import { createAzureOpenAIProvider } from "./azureOpenAI";
@@ -5,7 +6,11 @@ import { createGitHubCopilotProvider } from "./githubCopilot";
 import { createOpenAIProvider } from "./openai";
 import type { AiTranslationProvider, ProviderId } from "./types";
 
-export function createProvider(config: ExtensionConfig, apiKey?: string): AiTranslationProvider {
+export interface ProviderFactoryOptions {
+  languageModelAccessInformation?: vscode.LanguageModelAccessInformation;
+}
+
+export function createProvider(config: ExtensionConfig, apiKey?: string, options: ProviderFactoryOptions = {}): AiTranslationProvider {
   const runtime = {
     apiKey: apiKey ?? "",
     timeoutMs: config.request.timeoutMs,
@@ -35,7 +40,8 @@ export function createProvider(config: ExtensionConfig, apiKey?: string): AiTran
     case "githubCopilot":
       return createGitHubCopilotProvider({
         modelId: config.githubCopilot.modelId,
-        timeoutMs: config.request.timeoutMs
+        timeoutMs: config.request.timeoutMs,
+        accessInformation: options.languageModelAccessInformation
       });
     default:
       return exhaustive(config.activeProvider);
