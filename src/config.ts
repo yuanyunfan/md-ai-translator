@@ -24,15 +24,20 @@ export interface ExtensionConfig {
     baseUrl: string;
     model: string;
   };
+  githubCopilot: {
+    modelId: string;
+  };
 }
 
 export const providerLabels: Record<ProviderId, string> = {
   openai: "OpenAI-compatible",
   azureOpenAI: "Azure OpenAI",
-  anthropic: "Anthropic"
+  anthropic: "Anthropic",
+  githubCopilot: "GitHub Copilot"
 };
 
 export const providerIds = Object.keys(providerLabels) as ProviderId[];
+export const credentialProviderIds: ProviderId[] = ["openai", "azureOpenAI", "anthropic"];
 
 export function providerSecretKey(providerId: ProviderId): string {
   return `mdAiTranslator.apiKey.${providerId}`;
@@ -61,6 +66,9 @@ export function readExtensionConfig(resource?: vscode.Uri): ExtensionConfig {
     anthropic: {
       baseUrl: cfg.get("anthropic.baseUrl", "https://api.anthropic.com"),
       model: cfg.get("anthropic.model", "claude-3-5-sonnet-latest")
+    },
+    githubCopilot: {
+      modelId: cfg.get("githubCopilot.modelId", "")
     }
   };
 }

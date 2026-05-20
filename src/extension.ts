@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { providerIds, providerLabels, providerSecretKey, readExtensionConfig } from "./config";
+import { credentialProviderIds, providerLabels, providerSecretKey, readExtensionConfig } from "./config";
 import type { ProviderId } from "./providers/types";
 import { TranslationPreviewManager } from "./webview/panel";
 
@@ -25,6 +25,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("mdAiTranslator.clearApiKey", async () => {
       await clearApiKey(context);
+    }),
+    vscode.commands.registerCommand("mdAiTranslator.selectCopilotModel", async () => {
+      await selectCopilotModel();
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       manager?.updateDocument(event.document);
@@ -86,7 +89,7 @@ async function clearApiKey(context: vscode.ExtensionContext): Promise<void> {
 async function pickProvider(placeHolder: string): Promise<ProviderId | undefined> {
   const activeProvider = readExtensionConfig().activeProvider;
   const picked = await vscode.window.showQuickPick(
-    providerIds.map((id) => ({
+    credentialProviderIds.map((id) => ({
       label: providerLabels[id],
       description: id === activeProvider ? "active" : undefined,
       id
@@ -94,4 +97,36 @@ async function pickProvider(placeHolder: string): Promise<ProviderId | undefined
     { placeHolder }
   );
   return picked?.id;
+}
+
+async function selectCopilotModel(): Promise<void> {
+  const models = await vscode.lm.selectChatModels({ vendor: "copilot" });
+  if (models.length === 0) {
+    vscode.window.showWarningMessage(
+      "No GitHub Copilot language models are available. Install GitHub Copilot, sign in, and enable Copilot Chat in VS Code."
+    );
+    return;
+  }
+
+  const currentModelId = readExtensionConfig().githubCopilot.modelId;
+  const picked = await vscode.window.showQuickPick(
+    models.map((model) => ({
+      label: model.name,
+      description: [model.family, model.version].filter(Boolean).join(" · "),
+      detail: model.id,
+      model
+    })),
+    {
+      placeHolder: currentModelId ? `Current: ${currentModelId}` : "Select a GitHub Copilot model for Markdown translation"
+    }
+  );
+
+  if (!picked) {
+    return;
+  }
+
+  const cfg = vscode.workspace.getConfiguration("mdAiTranslator");
+  await cfg.update("githubCopilot.modelId", picked.model.id, vscode.ConfigurationTarget.Global);
+  await cfg.update("activeProvider", "githubCopilot", vscode.ConfigurationTarget.Global);
+  vscode.window.showInformationMessage(`GitHub Copilot model selected: ${picked.model.name}`);
 }

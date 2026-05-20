@@ -206,6 +206,7 @@ export function getWebviewHtml(state: WebviewState): string {
     <div class="actions">
       <button id="refresh" title="Refresh translation">Refresh</button>
       <button id="setKey" class="secondary" title="Set API key">Set Key</button>
+      <button id="selectModel" class="secondary" title="Select GitHub Copilot model">Model</button>
       <button id="settings" class="secondary" title="Open settings">Settings</button>
     </div>
   </div>
@@ -228,6 +229,9 @@ export function getWebviewHtml(state: WebviewState): string {
     });
     document.getElementById("setKey").addEventListener("click", () => {
       vscode.postMessage({ type: "setApiKey" });
+    });
+    document.getElementById("selectModel").addEventListener("click", () => {
+      vscode.postMessage({ type: "selectCopilotModel" });
     });
     document.getElementById("settings").addEventListener("click", () => {
       vscode.postMessage({ type: "openSettings" });

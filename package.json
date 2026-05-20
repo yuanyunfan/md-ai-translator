@@ -16,7 +16,8 @@
     "onCommand:mdAiTranslator.openPreview",
     "onCommand:mdAiTranslator.refreshPreview",
     "onCommand:mdAiTranslator.setApiKey",
-    "onCommand:mdAiTranslator.clearApiKey"
+    "onCommand:mdAiTranslator.clearApiKey",
+    "onCommand:mdAiTranslator.selectCopilotModel"
   ],
   "main": "./dist/extension.js",
   "scripts": {
@@ -60,6 +61,11 @@
         "command": "mdAiTranslator.clearApiKey",
         "title": "Clear AI Provider API Key",
         "category": "Markdown AI Translator"
+      },
+      {
+        "command": "mdAiTranslator.selectCopilotModel",
+        "title": "Select GitHub Copilot Model",
+        "category": "Markdown AI Translator"
       }
     ],
     "menus": {
@@ -83,6 +89,9 @@
         },
         {
           "command": "mdAiTranslator.clearApiKey"
+        },
+        {
+          "command": "mdAiTranslator.selectCopilotModel"
         }
       ]
     },
@@ -100,11 +109,18 @@
           "enum": [
             "openai",
             "azureOpenAI",
-            "anthropic"
+            "anthropic",
+            "githubCopilot"
           ],
           "default": "openai",
           "scope": "window",
           "description": "AI provider used for Markdown translation."
+        },
+        "mdAiTranslator.githubCopilot.modelId": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "GitHub Copilot language model ID. Leave empty to use the first available Copilot model, or run 'Markdown AI Translator: Select GitHub Copilot Model'."
         },
         "mdAiTranslator.request.timeoutMs": {
           "type": "number",

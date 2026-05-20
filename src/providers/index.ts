@@ -1,12 +1,13 @@
 import type { ExtensionConfig } from "../config";
 import { createAnthropicProvider } from "./anthropic";
 import { createAzureOpenAIProvider } from "./azureOpenAI";
+import { createGitHubCopilotProvider } from "./githubCopilot";
 import { createOpenAIProvider } from "./openai";
 import type { AiTranslationProvider, ProviderId } from "./types";
 
-export function createProvider(config: ExtensionConfig, apiKey: string): AiTranslationProvider {
+export function createProvider(config: ExtensionConfig, apiKey?: string): AiTranslationProvider {
   const runtime = {
-    apiKey,
+    apiKey: apiKey ?? "",
     timeoutMs: config.request.timeoutMs,
     maxOutputTokens: config.request.maxOutputTokens
   };
@@ -30,6 +31,11 @@ export function createProvider(config: ExtensionConfig, apiKey: string): AiTrans
         ...runtime,
         baseUrl: config.anthropic.baseUrl,
         model: config.anthropic.model
+      });
+    case "githubCopilot":
+      return createGitHubCopilotProvider({
+        modelId: config.githubCopilot.modelId,
+        timeoutMs: config.request.timeoutMs
       });
     default:
       return exhaustive(config.activeProvider);

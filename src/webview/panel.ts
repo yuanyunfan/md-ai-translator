@@ -142,7 +142,9 @@ class TranslationPreviewPanel {
     this.runId = currentRun;
     const document = await vscode.workspace.openTextDocument(this.documentUri);
     const config = readExtensionConfig(this.documentUri);
-    const apiKey = await this.context.secrets.get(providerSecretKey(config.activeProvider));
+    const apiKey = config.activeProvider === "githubCopilot"
+      ? undefined
+      : await this.context.secrets.get(providerSecretKey(config.activeProvider));
 
     this.state = {
       ...this.state,
@@ -155,7 +157,7 @@ class TranslationPreviewPanel {
     };
     this.postState();
 
-    if (!apiKey) {
+    if (config.activeProvider !== "githubCopilot" && !apiKey) {
       this.state = {
         ...this.state,
         statusText: `Missing API key for ${providerLabels[config.activeProvider]}. Use Set Key.`,
@@ -217,6 +219,10 @@ class TranslationPreviewPanel {
         break;
       case "setApiKey":
         await vscode.commands.executeCommand("mdAiTranslator.setApiKey");
+        await this.refresh();
+        break;
+      case "selectCopilotModel":
+        await vscode.commands.executeCommand("mdAiTranslator.selectCopilotModel");
         await this.refresh();
         break;
       case "openSettings":

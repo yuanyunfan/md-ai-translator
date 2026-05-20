@@ -1,4 +1,4 @@
-export type ProviderId = "openai" | "azureOpenAI" | "anthropic";
+export type ProviderId = "openai" | "azureOpenAI" | "anthropic" | "githubCopilot";
 
 export interface TranslationChunkRequest {
   markdown: string;
