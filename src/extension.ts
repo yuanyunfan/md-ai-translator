@@ -21,13 +21,16 @@ export function activate(context: vscode.ExtensionContext): void {
       manager?.refreshActive();
     }),
     vscode.commands.registerCommand("mdAiTranslator.setApiKey", async () => {
-      await setApiKey(context);
+      await setApiKeyOrProvider(context);
     }),
     vscode.commands.registerCommand("mdAiTranslator.clearApiKey", async () => {
       await clearApiKey(context);
     }),
+    vscode.commands.registerCommand("mdAiTranslator.connectCopilot", async () => {
+      await connectGitHubCopilot();
+    }),
     vscode.commands.registerCommand("mdAiTranslator.selectCopilotModel", async () => {
-      await selectCopilotModel();
+      await connectGitHubCopilot();
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       manager?.updateDocument(event.document);
@@ -52,9 +55,14 @@ function isMarkdownDocument(document: vscode.TextDocument): boolean {
   return document.languageId === "markdown" || fileName.endsWith(".md") || fileName.endsWith(".markdown");
 }
 
-async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
-  const providerId = await pickProvider("Set API key for provider");
+async function setApiKeyOrProvider(context: vscode.ExtensionContext): Promise<void> {
+  const providerId = await pickProvider("Set API key or choose GitHub Copilot", { includeCopilot: true });
   if (!providerId) {
+    return;
+  }
+
+  if (providerId === "githubCopilot") {
+    await connectGitHubCopilot();
     return;
   }
 
@@ -86,12 +94,17 @@ async function clearApiKey(context: vscode.ExtensionContext): Promise<void> {
   vscode.window.showInformationMessage(`${providerLabels[providerId]} API key cleared.`);
 }
 
-async function pickProvider(placeHolder: string): Promise<ProviderId | undefined> {
+async function pickProvider(
+  placeHolder: string,
+  options: { includeCopilot?: boolean } = {}
+): Promise<ProviderId | undefined> {
   const activeProvider = readExtensionConfig().activeProvider;
+  const ids: ProviderId[] = options.includeCopilot ? [...credentialProviderIds, "githubCopilot"] : credentialProviderIds;
   const picked = await vscode.window.showQuickPick(
-    credentialProviderIds.map((id) => ({
+    ids.map((id) => ({
       label: providerLabels[id],
-      description: id === activeProvider ? "active" : undefined,
+      description: providerDescription(id, activeProvider),
+      detail: id === "githubCopilot" ? "No API key required. Opens GitHub sign-in, then selects a Copilot model." : undefined,
       id
     })),
     { placeHolder }
@@ -99,11 +112,44 @@ async function pickProvider(placeHolder: string): Promise<ProviderId | undefined
   return picked?.id;
 }
 
-async function selectCopilotModel(): Promise<void> {
+function providerDescription(providerId: ProviderId, activeProvider: ProviderId): string | undefined {
+  if (providerId === "githubCopilot") {
+    return providerId === activeProvider ? "active · no API key" : "no API key";
+  }
+  return providerId === activeProvider ? "active" : undefined;
+}
+
+async function connectGitHubCopilot(): Promise<void> {
+  const session = await signInToGitHubForCopilot();
+  if (!session) {
+    return;
+  }
+
+  await selectCopilotModel(session.account.label);
+}
+
+async function signInToGitHubForCopilot(): Promise<vscode.AuthenticationSession | undefined> {
+  try {
+    return await vscode.authentication.getSession(
+      "github",
+      ["read:user"],
+      {
+        createIfNone: {
+          detail: "Sign in to GitHub so Markdown AI Translator can use the GitHub Copilot models exposed by VS Code."
+        }
+      }
+    );
+  } catch (error) {
+    vscode.window.showErrorMessage(toUserMessage(error, "GitHub sign-in failed"));
+    return undefined;
+  }
+}
+
+async function selectCopilotModel(accountLabel: string): Promise<void> {
   const models = await vscode.lm.selectChatModels({ vendor: "copilot" });
   if (models.length === 0) {
     vscode.window.showWarningMessage(
-      "No GitHub Copilot language models are available. Install GitHub Copilot, sign in, and enable Copilot Chat in VS Code."
+      `Signed in to GitHub as ${accountLabel}, but no GitHub Copilot language models are available. Install GitHub Copilot, sign in to Copilot Chat, and make sure your account has Copilot access.`
     );
     return;
   }
@@ -128,5 +174,12 @@ async function selectCopilotModel(): Promise<void> {
   const cfg = vscode.workspace.getConfiguration("mdAiTranslator");
   await cfg.update("githubCopilot.modelId", picked.model.id, vscode.ConfigurationTarget.Global);
   await cfg.update("activeProvider", "githubCopilot", vscode.ConfigurationTarget.Global);
-  vscode.window.showInformationMessage(`GitHub Copilot model selected: ${picked.model.name}`);
+  vscode.window.showInformationMessage(`Connected GitHub Copilot as ${accountLabel}. Model selected: ${picked.model.name}`);
+}
+
+function toUserMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return `${fallback}: ${error.message}`;
+  }
+  return fallback;
 }

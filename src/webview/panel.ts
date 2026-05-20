@@ -221,8 +221,8 @@ class TranslationPreviewPanel {
         await vscode.commands.executeCommand("mdAiTranslator.setApiKey");
         await this.refresh();
         break;
-      case "selectCopilotModel":
-        await vscode.commands.executeCommand("mdAiTranslator.selectCopilotModel");
+      case "connectCopilot":
+        await vscode.commands.executeCommand("mdAiTranslator.connectCopilot");
         await this.refresh();
         break;
       case "openSettings":

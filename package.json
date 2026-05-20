@@ -17,6 +17,7 @@
     "onCommand:mdAiTranslator.refreshPreview",
     "onCommand:mdAiTranslator.setApiKey",
     "onCommand:mdAiTranslator.clearApiKey",
+    "onCommand:mdAiTranslator.connectCopilot",
     "onCommand:mdAiTranslator.selectCopilotModel"
   ],
   "main": "./dist/extension.js",
@@ -63,6 +64,11 @@
         "category": "Markdown AI Translator"
       },
       {
+        "command": "mdAiTranslator.connectCopilot",
+        "title": "Connect GitHub Copilot",
+        "category": "Markdown AI Translator"
+      },
+      {
         "command": "mdAiTranslator.selectCopilotModel",
         "title": "Select GitHub Copilot Model",
         "category": "Markdown AI Translator"
@@ -89,6 +95,9 @@
         },
         {
           "command": "mdAiTranslator.clearApiKey"
+        },
+        {
+          "command": "mdAiTranslator.connectCopilot"
         },
         {
           "command": "mdAiTranslator.selectCopilotModel"
