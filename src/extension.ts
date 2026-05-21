@@ -6,6 +6,7 @@ import type { ProviderId } from "./providers/types";
 import { TranslationPreviewManager } from "./webview/panel";
 
 let manager: TranslationPreviewManager | undefined;
+const copilotModelListTimeoutMs = 15000;
 
 export function activate(context: vscode.ExtensionContext): void {
   initializeLogger(context);
@@ -150,9 +151,22 @@ async function signInToGitHubForCopilot(): Promise<vscode.AuthenticationSession 
 }
 
 async function selectCopilotModel(accountLabel: string): Promise<void> {
-  const models = (await vscode.lm.selectChatModels({ vendor: "copilot" }))
-    .filter(isUsableCopilotChatModel)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  let models: vscode.LanguageModelChat[];
+  try {
+    models = (await withTimeout(
+      vscode.lm.selectChatModels({ vendor: "copilot" }),
+      copilotModelListTimeoutMs,
+      `VS Code did not expose GitHub Copilot language models within ${copilotModelListTimeoutMs}ms.`
+    ))
+      .filter(isUsableCopilotChatModel)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `${toUserMessage(error, "GitHub Copilot model discovery failed")} Copilot Chat may be signed in while Language Model API access for this extension is unavailable or still resolving.`
+    );
+    return;
+  }
+
   if (models.length === 0) {
     vscode.window.showWarningMessage(
       `Signed in to GitHub as ${accountLabel}, but no GitHub Copilot language models are available. Install GitHub Copilot, sign in to Copilot Chat, and make sure your account has Copilot access.`
@@ -188,4 +202,20 @@ function toUserMessage(error: unknown, fallback: string): string {
     return `${fallback}: ${error.message}`;
   }
   return fallback;
+}
+
+function withTimeout<T>(promise: Thenable<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
 }

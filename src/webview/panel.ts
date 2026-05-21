@@ -74,6 +74,7 @@ class TranslationPreviewPanel {
   private readonly documentName: string;
   private state: WebviewState;
   private runId = 0;
+  private isRefreshing = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -139,36 +140,49 @@ class TranslationPreviewPanel {
   }
 
   async refresh(): Promise<void> {
-    const currentRun = this.runId + 1;
-    this.runId = currentRun;
-    const document = await vscode.workspace.openTextDocument(this.documentUri);
-    const config = readExtensionConfig(this.documentUri);
-    const apiKey = config.activeProvider === "githubCopilot"
-      ? undefined
-      : await this.context.secrets.get(providerSecretKey(config.activeProvider));
-
-    this.state = {
-      ...this.state,
-      sourceHtml: this.renderer.render(document.getText()),
-      translatedHtml: "",
-      providerLabel: providerLabels[config.activeProvider],
-      targetLanguage: config.targetLanguage,
-      statusText: "Preparing translation...",
-      statusKind: "loading"
-    };
-    this.postState();
-
-    if (config.activeProvider !== "githubCopilot" && !apiKey) {
+    if (this.isRefreshing) {
       this.state = {
         ...this.state,
-        statusText: `Missing API key for ${providerLabels[config.activeProvider]}. Use Set Key.`,
-        statusKind: "error"
+        statusText: "Translation already running...",
+        statusKind: "loading"
       };
       this.postState();
       return;
     }
 
+    this.isRefreshing = true;
+    const currentRun = this.runId + 1;
+    this.runId = currentRun;
+    const abortController = new AbortController();
+
     try {
+      const document = await vscode.workspace.openTextDocument(this.documentUri);
+      const config = readExtensionConfig(this.documentUri);
+      const apiKey = config.activeProvider === "githubCopilot"
+        ? undefined
+        : await this.context.secrets.get(providerSecretKey(config.activeProvider));
+
+      this.state = {
+        ...this.state,
+        sourceHtml: this.renderer.render(document.getText()),
+        translatedHtml: "",
+        providerLabel: providerLabels[config.activeProvider],
+        targetLanguage: config.targetLanguage,
+        statusText: "Preparing translation...",
+        statusKind: "loading"
+      };
+      this.postState();
+
+      if (config.activeProvider !== "githubCopilot" && !apiKey) {
+        this.state = {
+          ...this.state,
+          statusText: `Missing API key for ${providerLabels[config.activeProvider]}. Use Set Key.`,
+          statusKind: "error"
+        };
+        this.postState();
+        return;
+      }
+
       logInfo(
         `Starting translation for ${this.documentName}; provider=${config.activeProvider}; target=${config.targetLanguage}; maxChunkChars=${config.request.maxChunkChars}`
       );
@@ -180,6 +194,7 @@ class TranslationPreviewPanel {
         targetLanguage: config.targetLanguage,
         provider,
         maxChunkChars: config.request.maxChunkChars,
+        signal: abortController.signal,
         onProgress: (completed, total) => {
           if (this.runId !== currentRun) {
             return;
@@ -218,6 +233,12 @@ class TranslationPreviewPanel {
       };
       this.postState();
       showLogOutput();
+    } finally {
+      abortController.abort();
+      if (this.runId === currentRun) {
+        this.isRefreshing = false;
+        this.postState();
+      }
     }
   }
 

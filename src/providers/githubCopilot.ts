@@ -10,9 +10,8 @@ export interface GitHubCopilotProviderConfig {
   accessInformation?: vscode.LanguageModelAccessInformation;
 }
 
-const preferredCopilotModelIds = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "gpt-5.2", "gpt-5.5"];
-const autoCopilotModelIds = ["gpt-4.1", "gpt-4o", "gpt-4o-mini"];
-const modelSelectionTimeoutMs = 7000;
+const autoCopilotModelIds = ["gpt-4.1"];
+const modelSelectionTimeoutMs = 10000;
 const unusableModelPattern = /embedding|embed|utility|internal|search|codex|1m/i;
 
 export function createGitHubCopilotProvider(config: GitHubCopilotProviderConfig): AiTranslationProvider {
@@ -106,9 +105,7 @@ async function translateWithModel(
 
 async function selectCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
   const requestedId = normalizeModelPreference(modelId);
-  const candidateIds = requestedId
-    ? uniqueStrings([requestedId, ...preferredCopilotModelIds.filter((id) => id !== requestedId)])
-    : autoCopilotModelIds;
+  const candidateIds = requestedId ? [requestedId] : autoCopilotModelIds;
 
   for (const candidateId of candidateIds) {
     const selected = await selectUsableCopilotModels(candidateId);
@@ -118,17 +115,15 @@ async function selectCopilotModels(modelId: string): Promise<vscode.LanguageMode
   }
 
   throw new ProviderError(
-    `No usable GitHub Copilot chat model matched ${candidateIds.join(", ")}. ` +
-      "Make sure Copilot Chat is enabled, then choose a specific model from Markdown AI Translator settings."
+    `VS Code did not expose a usable GitHub Copilot chat model for ${candidateIds.join(", ")} within ${modelSelectionTimeoutMs}ms. ` +
+      "Copilot Chat can be signed in while third-party Language Model API access is unavailable, blocked, or still resolving. " +
+      "Run 'Markdown AI Translator: Connect GitHub Copilot' to choose another model, or switch to an API-key provider."
   );
 }
 
 async function selectUsableCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
-  const ids = uniqueStrings([modelId, stripCopilotVendorPrefix(modelId)]);
-  const selectors: vscode.LanguageModelChatSelector[] = ids.flatMap((id) => [
-    { vendor: "copilot", id },
-    { vendor: "copilot", family: id }
-  ]);
+  const id = stripCopilotVendorPrefix(modelId);
+  const selectors: vscode.LanguageModelChatSelector[] = [{ vendor: "copilot", id }];
   const selected: vscode.LanguageModelChat[] = [];
 
   for (const selector of selectors) {

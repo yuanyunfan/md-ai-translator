@@ -252,6 +252,9 @@ export function getWebviewHtml(state: WebviewState): string {
       const status = document.getElementById("status");
       status.textContent = state.statusText;
       status.className = "status " + state.statusKind;
+      const refresh = document.getElementById("refresh");
+      refresh.disabled = state.statusKind === "loading";
+      refresh.setAttribute("aria-busy", state.statusKind === "loading" ? "true" : "false");
       document.getElementById("source").innerHTML = state.sourceHtml || '<p class="placeholder">No source content.</p>';
       document.getElementById("translated").innerHTML = state.translatedHtml || '<p class="placeholder">Translation will appear here.</p>';
     }
