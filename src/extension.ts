@@ -1,13 +1,18 @@
 import * as vscode from "vscode";
 import { credentialProviderIds, providerLabels, providerSecretKey, readExtensionConfig } from "./config";
 import { initializeLogger, logInfo } from "./logging";
-import { formatCopilotModelPreference, isCopilotModelVendor } from "./providers/copilotModels";
+import {
+  copilotModelDiscoverySelectors,
+  formatCopilotModelPreference,
+  formatCopilotModelSelector,
+  isCopilotModelVendor
+} from "./providers/copilotModels";
 import { isUsableCopilotChatModel } from "./providers/githubCopilot";
 import type { ProviderId } from "./providers/types";
 import { TranslationPreviewManager } from "./webview/panel";
 
 let manager: TranslationPreviewManager | undefined;
-const copilotModelListTimeoutMs = 15000;
+const copilotModelListTimeoutMs = 5000;
 
 export function activate(context: vscode.ExtensionContext): void {
   initializeLogger(context);
@@ -153,21 +158,9 @@ async function signInToGitHubForCopilot(): Promise<vscode.AuthenticationSession 
 
 async function selectCopilotModel(accountLabel: string): Promise<void> {
   let models: vscode.LanguageModelChat[];
+  const currentModelId = readExtensionConfig().githubCopilot.modelId;
   try {
-    models = (await withTimeout(
-      vscode.lm.selectChatModels(),
-      copilotModelListTimeoutMs,
-      `VS Code did not expose GitHub Copilot language models within ${copilotModelListTimeoutMs}ms.`
-    ))
-      .filter((model) => isCopilotModelVendor(model.vendor))
-      .filter(isUsableCopilotChatModel)
-      .sort((a, b) => {
-        const byName = a.name.localeCompare(b.name);
-        if (byName !== 0) {
-          return byName;
-        }
-        return `${a.vendor}/${a.id}`.localeCompare(`${b.vendor}/${b.id}`);
-      });
+    models = await discoverCopilotModels(currentModelId);
   } catch (error) {
     vscode.window.showErrorMessage(
       `${toUserMessage(error, "GitHub Copilot model discovery failed")} Copilot Chat may be signed in while Language Model API access for this extension is unavailable or still resolving.`
@@ -182,7 +175,6 @@ async function selectCopilotModel(accountLabel: string): Promise<void> {
     return;
   }
 
-  const currentModelId = readExtensionConfig().githubCopilot.modelId;
   const picked = await vscode.window.showQuickPick(
     models.map((model) => ({
       label: model.name,
@@ -203,6 +195,38 @@ async function selectCopilotModel(accountLabel: string): Promise<void> {
   await cfg.update("githubCopilot.modelId", formatCopilotModelPreference(picked.model), vscode.ConfigurationTarget.Global);
   await cfg.update("activeProvider", "githubCopilot", vscode.ConfigurationTarget.Global);
   vscode.window.showInformationMessage(`Connected GitHub Copilot as ${accountLabel}. Model selected: ${picked.model.name}`);
+}
+
+async function discoverCopilotModels(currentModelId: string): Promise<vscode.LanguageModelChat[]> {
+  const models: vscode.LanguageModelChat[] = [];
+  const selectors = copilotModelDiscoverySelectors(currentModelId);
+
+  for (const selector of selectors) {
+    const selectorLabel = formatCopilotModelSelector(selector);
+    try {
+      logInfo(`Discovering GitHub Copilot model with selector ${selectorLabel}.`);
+      const selected = await withTimeout(
+        vscode.lm.selectChatModels(selector),
+        copilotModelListTimeoutMs,
+        `VS Code did not expose GitHub Copilot language model ${selectorLabel} within ${copilotModelListTimeoutMs}ms.`
+      );
+      for (const model of selected.filter((candidate) => isCopilotModelVendor(candidate.vendor)).filter(isUsableCopilotChatModel)) {
+        if (!models.some((existing) => existing.vendor === model.vendor && existing.id === model.id)) {
+          models.push(model);
+        }
+      }
+    } catch (error) {
+      logInfo(`GitHub Copilot model selector ${selectorLabel} unavailable: ${toUserMessage(error, "model discovery failed")}`);
+    }
+  }
+
+  return models.sort((a, b) => {
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) {
+      return byName;
+    }
+    return `${a.vendor}/${a.id}`.localeCompare(`${b.vendor}/${b.id}`);
+  });
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

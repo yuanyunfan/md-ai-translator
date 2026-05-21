@@ -167,7 +167,7 @@
             "Compatibility alias. Resolves to copilot/gpt-5.2 first."
           ],
           "scope": "window",
-          "description": "GitHub Copilot model preference. Use vendor/model values such as copilotcli/gpt-5.5, or run 'Markdown AI Translator: Connect GitHub Copilot' to choose from currently available models."
+          "description": "GitHub Copilot model preference. Use vendor/family values such as copilot/gpt-4o or copilotcli/gpt-5.5, or run 'Markdown AI Translator: Connect GitHub Copilot' to choose from currently available models."
         },
         "mdAiTranslator.request.timeoutMs": {
           "type": "number",

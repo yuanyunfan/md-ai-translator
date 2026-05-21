@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { logError, logInfo, logWarning } from "../logging";
 import {
   copilotModelPreferenceToSelectors,
-  formatCopilotModelPreference,
+  formatCopilotModelSelector,
   isCopilotModelVendor,
   matchesCopilotModelSelector
 } from "./copilotModels";
@@ -16,7 +16,7 @@ export interface GitHubCopilotProviderConfig {
   accessInformation?: vscode.LanguageModelAccessInformation;
 }
 
-const modelSelectionTimeoutMs = 10000;
+const modelSelectionTimeoutMs = 5000;
 const unusableModelPattern = /embedding|embed|utility|internal|search/i;
 
 export function createGitHubCopilotProvider(config: GitHubCopilotProviderConfig): AiTranslationProvider {
@@ -110,37 +110,43 @@ async function translateWithModel(
 
 async function selectCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
   const selectors = copilotModelPreferenceToSelectors(modelId);
-  const availableModels = await listAvailableCopilotModels();
-
+  const failures: string[] = [];
   for (const selector of selectors) {
-    const selected = availableModels.filter((model) => matchesCopilotModelSelector(model, selector));
+    const selected = await selectCopilotModelsBySelector(selector);
     if (selected.length > 0) {
+      if (!matchesCopilotModelSelector(selected[0], selectors[0])) {
+        logWarning(
+          `Preferred GitHub Copilot model ${formatCopilotModelSelector(selectors[0])} was unavailable; using ${modelLabel(selected[0])}.`
+        );
+      }
       return selected;
     }
+    failures.push(formatCopilotModelSelector(selector));
   }
 
   throw new ProviderError(
-    `VS Code did not expose a usable GitHub Copilot chat model for ${selectors.map(formatCopilotModelPreference).join(", ")} within ${modelSelectionTimeoutMs}ms. ` +
+    `VS Code did not expose a usable GitHub Copilot chat model for ${failures.join(", ")} within ${modelSelectionTimeoutMs}ms per selector. ` +
       "Copilot Chat can be signed in while third-party Language Model API access is unavailable, blocked, or still resolving. " +
       "Run 'Markdown AI Translator: Connect GitHub Copilot' to choose another model, or switch to an API-key provider."
   );
 }
 
-async function listAvailableCopilotModels(): Promise<vscode.LanguageModelChat[]> {
+async function selectCopilotModelsBySelector(selector: ReturnType<typeof copilotModelPreferenceToSelectors>[number]): Promise<vscode.LanguageModelChat[]> {
+  const selectorLabel = formatCopilotModelSelector(selector);
   try {
-    logInfo("Selecting all VS Code chat models, then filtering GitHub Copilot models inside Markdown AI Translator.");
+    logInfo(`Selecting VS Code chat models with selector ${selectorLabel}.`);
     const models = await withTimeout(
-      vscode.lm.selectChatModels(),
+      vscode.lm.selectChatModels(selector),
       modelSelectionTimeoutMs,
-      `Timed out selecting VS Code chat models after ${modelSelectionTimeoutMs}ms`
+      `Timed out selecting VS Code chat models for ${selectorLabel} after ${modelSelectionTimeoutMs}ms`
     );
-    const copilotModels = uniqueModels(models.filter(isUsableCopilotChatModel));
+    const copilotModels = uniqueModels(models.filter((model) => matchesCopilotModelSelector(model, selector)).filter(isUsableCopilotChatModel));
     logInfo(
-      `Available GitHub Copilot models: ${copilotModels.map((model) => modelLabel(model)).join("; ") || "none"}`
+      `GitHub Copilot selector ${selectorLabel} returned: ${copilotModels.map((model) => modelLabel(model)).join("; ") || "none"}`
     );
     return copilotModels;
   } catch (error) {
-    logWarning(`Failed to select VS Code chat models: ${errorToMessage(error)}`);
+    logWarning(`Failed to select VS Code chat models for ${selectorLabel}: ${errorToMessage(error)}`);
     return [];
   }
 }
@@ -148,10 +154,11 @@ async function listAvailableCopilotModels(): Promise<vscode.LanguageModelChat[]>
 function uniqueModels(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
   const seen = new Set<string>();
   return models.filter((model) => {
-    if (seen.has(model.id)) {
+    const key = `${model.vendor}/${model.id}`;
+    if (seen.has(key)) {
       return false;
     }
-    seen.add(model.id);
+    seen.add(key);
     return true;
   });
 }
