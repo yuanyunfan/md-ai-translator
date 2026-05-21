@@ -4,6 +4,7 @@ import { providerLabels, providerSecretKey, readExtensionConfig } from "../confi
 import { logError, logInfo, showLogOutput } from "../logging";
 import { ProviderError } from "../providers/http";
 import { createProvider } from "../providers";
+import { getProviderDefinition } from "../providers/registry";
 import { translateMarkdownDocument } from "../translation/translator";
 import { getWebviewHtml, type WebviewState } from "./html";
 import { MarkdownRenderer } from "./renderer";
@@ -158,9 +159,8 @@ class TranslationPreviewPanel {
     try {
       const document = await vscode.workspace.openTextDocument(this.documentUri);
       const config = readExtensionConfig(this.documentUri);
-      const apiKey = config.activeProvider === "githubCopilot"
-        ? undefined
-        : await this.context.secrets.get(providerSecretKey(config.activeProvider));
+      const providerDefinition = getProviderDefinition(config.activeProvider);
+      const apiKey = providerDefinition.auth === "none" ? "" : await this.context.secrets.get(providerSecretKey(config.activeProvider));
 
       this.state = {
         ...this.state,
@@ -173,10 +173,13 @@ class TranslationPreviewPanel {
       };
       this.postState();
 
-      if (config.activeProvider !== "githubCopilot" && !apiKey) {
+      if (providerDefinition.auth !== "none" && !apiKey) {
         this.state = {
           ...this.state,
-          statusText: `Missing API key for ${providerLabels[config.activeProvider]}. Use Set Key.`,
+          statusText:
+            providerDefinition.auth === "oauthDevice"
+              ? `${providerLabels[config.activeProvider]} is not connected. Run Markdown AI Translator: Connect AI Provider.`
+              : `Missing API key for ${providerLabels[config.activeProvider]}. Run Markdown AI Translator: Connect AI Provider.`,
           statusKind: "error"
         };
         this.postState();
@@ -186,9 +189,7 @@ class TranslationPreviewPanel {
       logInfo(
         `Starting translation for ${this.documentName}; provider=${config.activeProvider}; target=${config.targetLanguage}; maxChunkChars=${config.request.maxChunkChars}`
       );
-      const provider = createProvider(config, apiKey, {
-        languageModelAccessInformation: this.context.languageModelAccessInformation
-      });
+      const provider = createProvider(config, apiKey);
       const translatedMarkdown = await translateMarkdownDocument({
         markdown: document.getText(),
         targetLanguage: config.targetLanguage,
@@ -247,12 +248,12 @@ class TranslationPreviewPanel {
       case "refresh":
         await this.refresh();
         break;
-      case "setApiKey":
-        await vscode.commands.executeCommand("mdAiTranslator.setApiKey");
+      case "connectProvider":
+        await vscode.commands.executeCommand("mdAiTranslator.connectProvider");
         await this.refresh();
         break;
-      case "connectCopilot":
-        await vscode.commands.executeCommand("mdAiTranslator.connectCopilot");
+      case "selectModel":
+        await vscode.commands.executeCommand("mdAiTranslator.selectModel");
         await this.refresh();
         break;
       case "openSettings":

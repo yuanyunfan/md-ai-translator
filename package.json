@@ -4,7 +4,15 @@
   "description": "Translate Markdown documents with configurable AI providers in a side-by-side VS Code preview.",
   "version": "0.1.0",
   "publisher": "yuanyunfan",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yuanyunfan/md-ai-translator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yuanyunfan/md-ai-translator/issues"
+  },
+  "homepage": "https://github.com/yuanyunfan/md-ai-translator#readme",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -15,10 +23,8 @@
     "onLanguage:markdown",
     "onCommand:mdAiTranslator.openPreview",
     "onCommand:mdAiTranslator.refreshPreview",
-    "onCommand:mdAiTranslator.setApiKey",
-    "onCommand:mdAiTranslator.clearApiKey",
-    "onCommand:mdAiTranslator.connectCopilot",
-    "onCommand:mdAiTranslator.selectCopilotModel"
+    "onCommand:mdAiTranslator.connectProvider",
+    "onCommand:mdAiTranslator.selectModel"
   ],
   "main": "./dist/extension.js",
   "scripts": {
@@ -54,23 +60,13 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "mdAiTranslator.setApiKey",
-        "title": "Set AI Provider API Key",
+        "command": "mdAiTranslator.connectProvider",
+        "title": "Connect AI Provider",
         "category": "Markdown AI Translator"
       },
       {
-        "command": "mdAiTranslator.clearApiKey",
-        "title": "Clear AI Provider API Key",
-        "category": "Markdown AI Translator"
-      },
-      {
-        "command": "mdAiTranslator.connectCopilot",
-        "title": "Connect GitHub Copilot",
-        "category": "Markdown AI Translator"
-      },
-      {
-        "command": "mdAiTranslator.selectCopilotModel",
-        "title": "Select GitHub Copilot Model",
+        "command": "mdAiTranslator.selectModel",
+        "title": "Select Provider Model",
         "category": "Markdown AI Translator"
       }
     ],
@@ -91,16 +87,10 @@
           "command": "mdAiTranslator.refreshPreview"
         },
         {
-          "command": "mdAiTranslator.setApiKey"
+          "command": "mdAiTranslator.connectProvider"
         },
         {
-          "command": "mdAiTranslator.clearApiKey"
-        },
-        {
-          "command": "mdAiTranslator.connectCopilot"
-        },
-        {
-          "command": "mdAiTranslator.selectCopilotModel"
+          "command": "mdAiTranslator.selectModel"
         }
       ]
     },
@@ -110,6 +100,42 @@
         "mdAiTranslator.targetLanguage": {
           "type": "string",
           "default": "Simplified Chinese",
+          "enum": [
+            "Simplified Chinese",
+            "Traditional Chinese",
+            "English",
+            "Japanese",
+            "Korean",
+            "French",
+            "German",
+            "Spanish",
+            "Portuguese",
+            "Italian",
+            "Russian",
+            "Arabic",
+            "Hindi",
+            "Vietnamese",
+            "Thai",
+            "Indonesian"
+          ],
+          "enumDescriptions": [
+            "Translate to Simplified Chinese.",
+            "Translate to Traditional Chinese.",
+            "Translate to English.",
+            "Translate to Japanese.",
+            "Translate to Korean.",
+            "Translate to French.",
+            "Translate to German.",
+            "Translate to Spanish.",
+            "Translate to Portuguese.",
+            "Translate to Italian.",
+            "Translate to Russian.",
+            "Translate to Arabic.",
+            "Translate to Hindi.",
+            "Translate to Vietnamese.",
+            "Translate to Thai.",
+            "Translate to Indonesian."
+          ],
           "scope": "resource",
           "description": "Target language used when translating Markdown documents."
         },
@@ -119,120 +145,22 @@
             "openai",
             "azureOpenAI",
             "anthropic",
-            "githubCopilot"
+            "githubCopilot",
+            "openrouter",
+            "deepseek",
+            "moonshot",
+            "xai",
+            "groq",
+            "together",
+            "fireworks",
+            "siliconflow",
+            "ollama",
+            "lmstudio",
+            "customOpenAI"
           ],
           "default": "openai",
           "scope": "window",
           "description": "AI provider used for Markdown translation."
-        },
-        "mdAiTranslator.githubCopilot.modelId": {
-          "type": "string",
-          "default": "auto",
-          "enum": [
-            "auto",
-            "copilot/auto",
-            "copilot/gpt-4.1",
-            "copilot/gpt-4o",
-            "copilot/gpt-4o-mini",
-            "copilot/gpt-5.2",
-            "copilotcli/gpt-5.5",
-            "copilotcli/gpt-5.4",
-            "copilotcli/gpt-5.4-mini",
-            "copilotcli/gpt-5-mini",
-            "copilotcli/gpt-4.1",
-            "copilotcli/gpt-4o",
-            "gpt-5.5",
-            "gpt-4.1",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-5.2"
-          ],
-          "enumDescriptions": [
-            "Automatically choose the best available GitHub Copilot model for translation.",
-            "Use the Copilot auto router exposed by VS Code.",
-            "Use GitHub Copilot's GPT-4.1 model.",
-            "Use GitHub Copilot's GPT-4o model.",
-            "Use GitHub Copilot's GPT-4o mini model.",
-            "Use GitHub Copilot's GPT-5.2 model.",
-            "Use GitHub Copilot CLI's GPT-5.5 model.",
-            "Use GitHub Copilot CLI's GPT-5.4 model.",
-            "Use GitHub Copilot CLI's GPT-5.4 mini model.",
-            "Use GitHub Copilot CLI's GPT-5 mini model.",
-            "Use GitHub Copilot CLI's GPT-4.1 model.",
-            "Use GitHub Copilot CLI's GPT-4o model.",
-            "Compatibility alias. Resolves to copilotcli/gpt-5.5 first.",
-            "Compatibility alias. Resolves to copilot/gpt-4.1 first.",
-            "Compatibility alias. Resolves to copilot/gpt-4o first.",
-            "Compatibility alias. Resolves to copilot/gpt-4o-mini first.",
-            "Compatibility alias. Resolves to copilot/gpt-5.2 first."
-          ],
-          "scope": "window",
-          "description": "GitHub Copilot model preference. Use vendor/family values such as copilot/gpt-4o or copilotcli/gpt-5.5, or run 'Markdown AI Translator: Connect GitHub Copilot' to choose from currently available models."
-        },
-        "mdAiTranslator.request.timeoutMs": {
-          "type": "number",
-          "default": 120000,
-          "minimum": 1000,
-          "scope": "window",
-          "description": "Timeout in milliseconds for each AI translation request."
-        },
-        "mdAiTranslator.request.maxChunkChars": {
-          "type": "number",
-          "default": 6000,
-          "minimum": 1000,
-          "maximum": 30000,
-          "scope": "resource",
-          "description": "Maximum Markdown characters sent in a single translation request."
-        },
-        "mdAiTranslator.request.maxOutputTokens": {
-          "type": "number",
-          "default": 8192,
-          "minimum": 256,
-          "maximum": 32768,
-          "scope": "window",
-          "description": "Maximum output tokens requested from providers that require an explicit limit."
-        },
-        "mdAiTranslator.openai.baseUrl": {
-          "type": "string",
-          "default": "https://api.openai.com/v1",
-          "scope": "machine-overridable",
-          "description": "OpenAI-compatible API base URL."
-        },
-        "mdAiTranslator.openai.model": {
-          "type": "string",
-          "default": "gpt-4o-mini",
-          "scope": "window",
-          "description": "OpenAI-compatible chat model used for translation."
-        },
-        "mdAiTranslator.azureOpenAI.endpoint": {
-          "type": "string",
-          "default": "",
-          "scope": "machine-overridable",
-          "description": "Azure OpenAI resource endpoint, for example https://example.openai.azure.com."
-        },
-        "mdAiTranslator.azureOpenAI.deployment": {
-          "type": "string",
-          "default": "",
-          "scope": "window",
-          "description": "Azure OpenAI deployment name."
-        },
-        "mdAiTranslator.azureOpenAI.apiVersion": {
-          "type": "string",
-          "default": "2024-10-21",
-          "scope": "window",
-          "description": "Azure OpenAI chat completions API version."
-        },
-        "mdAiTranslator.anthropic.baseUrl": {
-          "type": "string",
-          "default": "https://api.anthropic.com",
-          "scope": "machine-overridable",
-          "description": "Anthropic API base URL."
-        },
-        "mdAiTranslator.anthropic.model": {
-          "type": "string",
-          "default": "claude-3-5-sonnet-latest",
-          "scope": "window",
-          "description": "Anthropic model used for translation."
         }
       }
     }

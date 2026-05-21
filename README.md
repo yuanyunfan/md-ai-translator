@@ -1,53 +1,81 @@
 # Markdown AI Translator
 
-Markdown AI Translator is a VS Code extension that opens a side-by-side translation preview for Markdown documents.
+Markdown AI Translator is a VS Code extension for translating Markdown documents in a side-by-side preview. It keeps the source document on the left, renders the translated Markdown on the right, and preserves YAML frontmatter and fenced code blocks.
 
 ## Features
 
-- Opens a Markdown-only translation preview from the editor title button or Command Palette.
-- Renders the original Markdown on the left and translated Markdown on the right.
-- Supports OpenAI-compatible APIs, Azure OpenAI, Anthropic, and GitHub Copilot models exposed by VS Code.
-- Stores API keys in VS Code SecretStorage instead of `settings.json`.
-- Preserves YAML frontmatter and fenced code blocks during translation.
+- Translate `.md` and `.markdown` files from the editor title button or Command Palette.
+- Preview original and translated Markdown side by side.
+- Choose the target language from a Settings dropdown.
+- Connect providers through guided commands instead of editing credentials in `settings.json`.
+- Store API keys and OAuth tokens in VS Code SecretStorage.
+- Use GitHub Copilot through GitHub browser device login.
+- Use OpenAI-compatible providers through one registry-driven adapter.
 
-## Quick Start
+## Providers
 
-1. Run `npm install`.
-2. Run `npm run compile`.
-3. Start the extension with the `Run Extension` debug profile in VS Code.
-4. Open a `.md` file.
-5. Run `Markdown AI Translator: Set AI Provider API Key`.
-6. Click the globe button in the editor title or run `Markdown AI Translator: Open AI Translation Preview`.
+Built-in providers:
+
+- OpenAI
+- Azure OpenAI
+- Anthropic
+- GitHub Copilot
+- OpenRouter
+- DeepSeek
+- Moonshot / Kimi
+- xAI
+- Groq
+- Together AI
+- Fireworks AI
+- SiliconFlow
+- Ollama
+- LM Studio
+- Custom OpenAI-compatible endpoint
+
+OpenAI-compatible providers share the same chat completions adapter. Anthropic, Azure OpenAI, and GitHub Copilot use provider-specific request protocols.
+
+## Usage
+
+1. Open a Markdown document.
+2. Run `Markdown AI Translator: Connect AI Provider`.
+3. Choose a provider and complete authentication:
+   - API-key providers prompt for an API key.
+   - GitHub Copilot opens GitHub device login in the browser.
+   - Ollama and LM Studio do not require credentials.
+4. Select a model from the provider model picker.
+5. Run `Markdown AI Translator: Open AI Translation Preview` or click the globe button in the editor title.
+
+Use `Markdown AI Translator: Select Provider Model` any time you want to change the model.
 
 ## Settings
 
-- `mdAiTranslator.targetLanguage`: target translation language.
-- `mdAiTranslator.activeProvider`: `openai`, `azureOpenAI`, `anthropic`, or `githubCopilot`.
-- `mdAiTranslator.githubCopilot.modelId`: GitHub Copilot model dropdown. Prefer full `vendor/family` values such as `copilot/gpt-4o` or `copilotcli/gpt-5.5`; legacy ids such as `gpt-5.5` are still accepted.
-- `mdAiTranslator.openai.baseUrl` and `mdAiTranslator.openai.model`.
-- `mdAiTranslator.azureOpenAI.endpoint`, `deployment`, and `apiVersion`.
-- `mdAiTranslator.anthropic.baseUrl` and `mdAiTranslator.anthropic.model`.
-- `mdAiTranslator.request.timeoutMs`, `maxChunkChars`, and `maxOutputTokens`.
+The Settings UI intentionally exposes only user-facing choices:
 
-API keys are configured with commands:
+- `mdAiTranslator.targetLanguage`: target translation language dropdown.
+- `mdAiTranslator.activeProvider`: active provider dropdown.
 
-- `Markdown AI Translator: Set AI Provider API Key`
-- `Markdown AI Translator: Clear AI Provider API Key`
-- `Markdown AI Translator: Connect GitHub Copilot`
-- `Markdown AI Translator: Select GitHub Copilot Model`
+Credentials, endpoint/base URL values, selected models, and Azure API versions are managed by commands and kept out of the Settings UI. Request tuning remains available as hidden advanced `settings.json` values for large Markdown files. Existing `settings.json` values for older versions are still read for backward compatibility.
 
-GitHub Copilot does not require an API key in this extension. Use `Markdown AI Translator: Connect GitHub Copilot` to open the GitHub browser sign-in flow, then select one of the Copilot language models exposed by VS Code. If you choose GitHub Copilot from the API key provider list, the extension opens the same connection flow instead of asking for a key.
+Default request tuning:
 
-Some Copilot models are exposed by VS Code as `copilot/...`, while newer Copilot CLI chat models can appear as `copilotcli/...`. The extension stores the model family after you pick a model and queries VS Code by `family`, because exact model IDs are internal and can change between VS Code/Copilot versions.
+- `maxChunkChars`: `12000`
+- `maxOutputTokens`: `16384`
+- `timeoutMs`: `120000`
 
-When installing or updating a local VSIX, reload the active VS Code window before retrying translation. VS Code keeps already activated extension code in the running extension host until the window reloads.
+## GitHub Copilot
 
-If Copilot translation fails, open `Output: Markdown AI Translator` to see the selected model, access state, and provider error.
+GitHub Copilot does not require an API key. Choose GitHub Copilot in `Markdown AI Translator: Connect AI Provider`, enter the device code shown by VS Code in GitHub's browser login page, then select a model returned by Copilot. Some models may require a Copilot plan or explicit model access in GitHub settings.
 
 ## Development
 
 ```bash
 npm install
-npm run compile
 npm test
+npm run build
+```
+
+Package locally:
+
+```bash
+npx @vscode/vsce package
 ```

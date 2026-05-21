@@ -1,8 +1,10 @@
 import { joinUrl, postJson, ProviderError } from "./http";
 import { translationSystemPrompt, translationUserPrompt } from "./prompts";
-import type { AiTranslationProvider, ProviderRuntimeConfig } from "./types";
+import type { AiTranslationProvider, ProviderId, ProviderRuntimeConfig } from "./types";
 
 export interface AnthropicProviderConfig extends ProviderRuntimeConfig {
+  id?: ProviderId;
+  label?: string;
   baseUrl: string;
   model: string;
 }
@@ -20,8 +22,8 @@ export function createAnthropicProvider(config: AnthropicProviderConfig): AiTran
   const apiKey = requireValue(config.apiKey, "Anthropic API key");
 
   return {
-    id: "anthropic",
-    label: "Anthropic",
+    id: config.id ?? "anthropic",
+    label: config.label ?? "Anthropic",
     async translateChunk(request) {
       const response = await postJson<AnthropicResponse>(
         joinUrl(baseUrl, "/v1/messages"),

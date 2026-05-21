@@ -1,8 +1,10 @@
 import { joinUrl, postJson, ProviderError } from "./http";
 import { translationSystemPrompt, translationUserPrompt } from "./prompts";
-import type { AiTranslationProvider, ProviderRuntimeConfig } from "./types";
+import type { AiTranslationProvider, ProviderId, ProviderRuntimeConfig } from "./types";
 
 export interface AzureOpenAIProviderConfig extends ProviderRuntimeConfig {
+  id?: ProviderId;
+  label?: string;
   endpoint: string;
   deployment: string;
   apiVersion: string;
@@ -24,8 +26,8 @@ export function createAzureOpenAIProvider(config: AzureOpenAIProviderConfig): Ai
   const url = `${joinUrl(endpoint, `/openai/deployments/${encodeURIComponent(deployment)}/chat/completions`)}?api-version=${encodeURIComponent(apiVersion)}`;
 
   return {
-    id: "azureOpenAI",
-    label: "Azure OpenAI",
+    id: config.id ?? "azureOpenAI",
+    label: config.label ?? "Azure OpenAI",
     async translateChunk(request) {
       const response = await postJson<AzureOpenAIResponse>(
         url,

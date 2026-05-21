@@ -89,7 +89,8 @@ export function getWebviewHtml(state: WebviewState): string {
       align-items: center;
     }
 
-    button {
+    button,
+    .button {
       border: 1px solid var(--vscode-button-border, transparent);
       border-radius: 4px;
       color: var(--vscode-button-foreground);
@@ -97,19 +98,29 @@ export function getWebviewHtml(state: WebviewState): string {
       padding: 4px 10px;
       font: inherit;
       cursor: pointer;
+      text-decoration: none;
+      box-sizing: border-box;
     }
 
-    button.secondary {
+    button.secondary,
+    .button.secondary {
       color: var(--vscode-button-secondaryForeground);
       background: var(--vscode-button-secondaryBackground);
     }
 
-    button:hover {
+    button:hover,
+    .button:hover {
       background: var(--vscode-button-hoverBackground);
     }
 
-    button.secondary:hover {
+    button.secondary:hover,
+    .button.secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .button[aria-disabled="true"] {
+      opacity: 0.7;
+      pointer-events: none;
     }
 
     .panes {
@@ -205,8 +216,8 @@ export function getWebviewHtml(state: WebviewState): string {
     </div>
     <div class="actions">
       <button id="refresh" title="Refresh translation">Refresh</button>
-      <button id="setKey" class="secondary" title="Set API key">Set Key</button>
-      <button id="connectCopilot" class="secondary" title="Sign in and select a GitHub Copilot model">Connect Copilot</button>
+      <button id="connectProvider" class="secondary" title="Connect an AI provider">Connect</button>
+      <button id="selectModel" class="secondary" title="Select provider model">Model</button>
       <button id="settings" class="secondary" title="Open settings">Settings</button>
     </div>
   </div>
@@ -227,11 +238,11 @@ export function getWebviewHtml(state: WebviewState): string {
     document.getElementById("refresh").addEventListener("click", () => {
       vscode.postMessage({ type: "refresh" });
     });
-    document.getElementById("setKey").addEventListener("click", () => {
-      vscode.postMessage({ type: "setApiKey" });
+    document.getElementById("connectProvider").addEventListener("click", () => {
+      vscode.postMessage({ type: "connectProvider" });
     });
-    document.getElementById("connectCopilot").addEventListener("click", () => {
-      vscode.postMessage({ type: "connectCopilot" });
+    document.getElementById("selectModel").addEventListener("click", () => {
+      vscode.postMessage({ type: "selectModel" });
     });
     document.getElementById("settings").addEventListener("click", () => {
       vscode.postMessage({ type: "openSettings" });

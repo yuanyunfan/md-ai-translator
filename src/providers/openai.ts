@@ -1,8 +1,11 @@
 import { joinUrl, postJson, ProviderError } from "./http";
 import { translationSystemPrompt, translationUserPrompt } from "./prompts";
-import type { AiTranslationProvider, ProviderRuntimeConfig } from "./types";
+import type { AiTranslationProvider, ProviderId, ProviderRuntimeConfig } from "./types";
 
 export interface OpenAIProviderConfig extends ProviderRuntimeConfig {
+  id?: ProviderId;
+  label?: string;
+  requiresApiKey?: boolean;
   baseUrl: string;
   model: string;
 }
@@ -18,17 +21,15 @@ interface OpenAIResponse {
 export function createOpenAIProvider(config: OpenAIProviderConfig): AiTranslationProvider {
   const baseUrl = requireValue(config.baseUrl, "OpenAI-compatible base URL");
   const model = requireValue(config.model, "OpenAI-compatible model");
-  const apiKey = requireValue(config.apiKey, "OpenAI-compatible API key");
+  const apiKey = config.requiresApiKey === false ? config.apiKey.trim() : requireValue(config.apiKey, "OpenAI-compatible API key");
 
   return {
-    id: "openai",
-    label: "OpenAI-compatible",
+    id: config.id ?? "openai",
+    label: config.label ?? "OpenAI-compatible",
     async translateChunk(request) {
       const response = await postJson<OpenAIResponse>(
         joinUrl(baseUrl, "/chat/completions"),
-        {
-          authorization: `Bearer ${apiKey}`
-        },
+        apiKey ? { authorization: `Bearer ${apiKey}` } : {},
         {
           model,
           temperature: 0.2,

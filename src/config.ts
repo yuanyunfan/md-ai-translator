@@ -1,4 +1,11 @@
 import * as vscode from "vscode";
+import {
+  credentialProviderIds,
+  normalizeProviderId,
+  providerIds,
+  providerLabels,
+  providerSecretKey
+} from "./providers/registry";
 import type { ProviderId } from "./providers/types";
 
 export interface RequestConfig {
@@ -10,6 +17,8 @@ export interface RequestConfig {
 export interface ExtensionConfig {
   targetLanguage: string;
   activeProvider: ProviderId;
+  providerModels: Record<string, string>;
+  providerBaseUrls: Record<string, string>;
   request: RequestConfig;
   openai: {
     baseUrl: string;
@@ -29,19 +38,7 @@ export interface ExtensionConfig {
   };
 }
 
-export const providerLabels: Record<ProviderId, string> = {
-  openai: "OpenAI-compatible",
-  azureOpenAI: "Azure OpenAI",
-  anthropic: "Anthropic",
-  githubCopilot: "GitHub Copilot"
-};
-
-export const providerIds = Object.keys(providerLabels) as ProviderId[];
-export const credentialProviderIds: ProviderId[] = ["openai", "azureOpenAI", "anthropic"];
-
-export function providerSecretKey(providerId: ProviderId): string {
-  return `mdAiTranslator.apiKey.${providerId}`;
-}
+export { credentialProviderIds, providerIds, providerLabels, providerSecretKey };
 
 export function readExtensionConfig(resource?: vscode.Uri): ExtensionConfig {
   const cfg = vscode.workspace.getConfiguration("mdAiTranslator", resource);
@@ -49,10 +46,12 @@ export function readExtensionConfig(resource?: vscode.Uri): ExtensionConfig {
   return {
     targetLanguage: cfg.get("targetLanguage", "Simplified Chinese").trim() || "Simplified Chinese",
     activeProvider: normalizeProviderId(cfg.get("activeProvider", "openai")),
+    providerModels: cfg.get<Record<string, string>>("providerModels", {}),
+    providerBaseUrls: cfg.get<Record<string, string>>("providerBaseUrls", {}),
     request: {
       timeoutMs: cfg.get("request.timeoutMs", 120000),
-      maxChunkChars: cfg.get("request.maxChunkChars", 6000),
-      maxOutputTokens: cfg.get("request.maxOutputTokens", 8192)
+      maxChunkChars: cfg.get("request.maxChunkChars", 12000),
+      maxOutputTokens: cfg.get("request.maxOutputTokens", 16384)
     },
     openai: {
       baseUrl: cfg.get("openai.baseUrl", "https://api.openai.com/v1"),
@@ -71,11 +70,4 @@ export function readExtensionConfig(resource?: vscode.Uri): ExtensionConfig {
       modelId: cfg.get("githubCopilot.modelId", "auto")
     }
   };
-}
-
-function normalizeProviderId(value: string): ProviderId {
-  if (providerIds.includes(value as ProviderId)) {
-    return value as ProviderId;
-  }
-  return "openai";
 }

@@ -1,10 +1,13 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
 let outputChannel: vscode.OutputChannel | undefined;
 
 export function initializeLogger(context: vscode.ExtensionContext): void {
   if (!outputChannel) {
-    outputChannel = vscode.window.createOutputChannel("Markdown AI Translator");
+    // Load the VS Code module only inside the extension host. This keeps provider
+    // unit tests runnable in plain Node.
+    const vscodeApi = require("vscode") as typeof vscode;
+    outputChannel = vscodeApi.window.createOutputChannel("Markdown AI Translator");
     context.subscriptions.push(outputChannel);
   }
 }
