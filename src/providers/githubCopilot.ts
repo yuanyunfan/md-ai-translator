@@ -3,7 +3,8 @@ import { logError, logInfo, logWarning } from "../logging";
 import {
   copilotModelPreferenceToSelectors,
   formatCopilotModelPreference,
-  isCopilotModelVendor
+  isCopilotModelVendor,
+  matchesCopilotModelSelector
 } from "./copilotModels";
 import { ProviderError } from "./http";
 import { translationSystemPrompt, translationUserPrompt } from "./prompts";
@@ -109,9 +110,10 @@ async function translateWithModel(
 
 async function selectCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
   const selectors = copilotModelPreferenceToSelectors(modelId);
+  const availableModels = await listAvailableCopilotModels();
 
   for (const selector of selectors) {
-    const selected = await selectUsableCopilotModels(selector);
+    const selected = availableModels.filter((model) => matchesCopilotModelSelector(model, selector));
     if (selected.length > 0) {
       return selected;
     }
@@ -124,23 +126,23 @@ async function selectCopilotModels(modelId: string): Promise<vscode.LanguageMode
   );
 }
 
-async function selectUsableCopilotModels(selector: vscode.LanguageModelChatSelector): Promise<vscode.LanguageModelChat[]> {
-  const selected: vscode.LanguageModelChat[] = [];
-
+async function listAvailableCopilotModels(): Promise<vscode.LanguageModelChat[]> {
   try {
-    logInfo(`Selecting GitHub Copilot models with ${JSON.stringify(selector)}.`);
-    selected.push(
-      ...await withTimeout(
-        vscode.lm.selectChatModels(selector),
-        modelSelectionTimeoutMs,
-        `Timed out selecting GitHub Copilot models with ${JSON.stringify(selector)} after ${modelSelectionTimeoutMs}ms`
-      )
+    logInfo("Selecting all VS Code chat models, then filtering GitHub Copilot models inside Markdown AI Translator.");
+    const models = await withTimeout(
+      vscode.lm.selectChatModels(),
+      modelSelectionTimeoutMs,
+      `Timed out selecting VS Code chat models after ${modelSelectionTimeoutMs}ms`
     );
+    const copilotModels = uniqueModels(models.filter(isUsableCopilotChatModel));
+    logInfo(
+      `Available GitHub Copilot models: ${copilotModels.map((model) => modelLabel(model)).join("; ") || "none"}`
+    );
+    return copilotModels;
   } catch (error) {
-    logWarning(`Failed to select GitHub Copilot models with ${JSON.stringify(selector)}: ${errorToMessage(error)}`);
+    logWarning(`Failed to select VS Code chat models: ${errorToMessage(error)}`);
+    return [];
   }
-
-  return uniqueModels(selected.filter(isUsableCopilotChatModel));
 }
 
 function uniqueModels(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {

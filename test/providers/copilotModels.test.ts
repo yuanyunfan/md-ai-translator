@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   copilotModelPreferenceToSelectors,
   formatCopilotModelPreference,
-  isCopilotModelVendor
+  isCopilotModelVendor,
+  matchesCopilotModelSelector
 } from "../../src/providers/copilotModels";
 
 test("legacy gpt-5.5 preference resolves to copilotcli before copilot", () => {
@@ -39,4 +40,21 @@ test("only GitHub Copilot model vendors are accepted", () => {
   assert.equal(isCopilotModelVendor("copilot"), true);
   assert.equal(isCopilotModelVendor("copilotcli"), true);
   assert.equal(isCopilotModelVendor("openai"), false);
+});
+
+test("model selector matching requires vendor and id", () => {
+  assert.equal(
+    matchesCopilotModelSelector(
+      { vendor: "copilotcli", id: "gpt-5.5" },
+      { vendor: "copilotcli", id: "gpt-5.5" }
+    ),
+    true
+  );
+  assert.equal(
+    matchesCopilotModelSelector(
+      { vendor: "copilot", id: "gpt-5.5" },
+      { vendor: "copilotcli", id: "gpt-5.5" }
+    ),
+    false
+  );
 });

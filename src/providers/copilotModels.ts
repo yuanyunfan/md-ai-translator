@@ -7,6 +7,11 @@ export interface CopilotModelSelectorSpec {
   id: string;
 }
 
+export interface CopilotModelReference {
+  vendor: string;
+  id: string;
+}
+
 export function copilotModelPreferenceToSelectors(modelId: string): CopilotModelSelectorSpec[] {
   const trimmed = modelId.trim();
   if (!trimmed || trimmed === "auto") {
@@ -29,8 +34,12 @@ export function copilotModelPreferenceToSelectors(modelId: string): CopilotModel
   return vendors.map((vendor) => ({ vendor, id: trimmed }));
 }
 
-export function formatCopilotModelPreference(model: { vendor: string; id: string }): string {
+export function formatCopilotModelPreference(model: CopilotModelReference): string {
   return `${model.vendor}/${model.id}`;
+}
+
+export function matchesCopilotModelSelector(model: CopilotModelReference, selector: CopilotModelSelectorSpec): boolean {
+  return model.vendor === selector.vendor && model.id === selector.id;
 }
 
 export function isCopilotModelVendor(vendor: string): vendor is CopilotModelVendor {
