@@ -11,6 +11,8 @@ export interface GitHubCopilotProviderConfig {
 }
 
 const preferredCopilotModelIds = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "gpt-5.2", "gpt-5.5"];
+const autoCopilotModelIds = ["gpt-4.1", "gpt-4o", "gpt-4o-mini"];
+const modelSelectionTimeoutMs = 7000;
 const unusableModelPattern = /embedding|embed|utility|internal|search|codex|1m/i;
 
 export function createGitHubCopilotProvider(config: GitHubCopilotProviderConfig): AiTranslationProvider {
@@ -104,23 +106,21 @@ async function translateWithModel(
 
 async function selectCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
   const requestedId = normalizeModelPreference(modelId);
-  const requestedModels = requestedId ? await selectUsableCopilotModels(requestedId) : [];
-  const fallbackIds = preferredCopilotModelIds.filter((id) => id !== requestedId);
-  const preferredModels = (await Promise.all(fallbackIds.map((id) => selectUsableCopilotModels(id)))).flat();
-  const narrowModels = uniqueModels([...requestedModels, ...preferredModels]);
+  const candidateIds = requestedId
+    ? uniqueStrings([requestedId, ...preferredCopilotModelIds.filter((id) => id !== requestedId)])
+    : autoCopilotModelIds;
 
-  if (narrowModels.length > 0) {
-    return narrowModels;
+  for (const candidateId of candidateIds) {
+    const selected = await selectUsableCopilotModels(candidateId);
+    if (selected.length > 0) {
+      return selected;
+    }
   }
 
-  const allModels = (await vscode.lm.selectChatModels({ vendor: "copilot" })).filter(isUsableCopilotChatModel);
-  if (allModels.length === 0) {
-    throw new ProviderError(
-      "No GitHub Copilot language models are available. Install GitHub Copilot, sign in, and enable Copilot Chat in VS Code."
-    );
-  }
-
-  return sortFallbackModels(allModels, requestedId);
+  throw new ProviderError(
+    `No usable GitHub Copilot chat model matched ${candidateIds.join(", ")}. ` +
+      "Make sure Copilot Chat is enabled, then choose a specific model from Markdown AI Translator settings."
+  );
 }
 
 async function selectUsableCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
@@ -133,7 +133,14 @@ async function selectUsableCopilotModels(modelId: string): Promise<vscode.Langua
 
   for (const selector of selectors) {
     try {
-      selected.push(...await vscode.lm.selectChatModels(selector));
+      logInfo(`Selecting GitHub Copilot models with ${JSON.stringify(selector)}.`);
+      selected.push(
+        ...await withTimeout(
+          vscode.lm.selectChatModels(selector),
+          modelSelectionTimeoutMs,
+          `Timed out selecting GitHub Copilot models with ${JSON.stringify(selector)} after ${modelSelectionTimeoutMs}ms`
+        )
+      );
     } catch (error) {
       logWarning(`Failed to select GitHub Copilot models with ${JSON.stringify(selector)}: ${errorToMessage(error)}`);
     }
@@ -149,33 +156,6 @@ function normalizeModelPreference(modelId: string): string {
 
 function stripCopilotVendorPrefix(modelId: string): string {
   return modelId.startsWith("copilot/") ? modelId.slice("copilot/".length) : modelId;
-}
-
-function sortFallbackModels(models: vscode.LanguageModelChat[], requestedId: string): vscode.LanguageModelChat[] {
-  const order = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "auto"];
-  return [...models].sort((a, b) => scoreModel(a, requestedId, order) - scoreModel(b, requestedId, order));
-}
-
-function scoreModel(model: vscode.LanguageModelChat, requestedId: string, order: string[]): number {
-  if (requestedId && matchesModelId(model, requestedId)) {
-    return -100;
-  }
-
-  const orderIndex = order.findIndex((id) => matchesModelId(model, id));
-  if (orderIndex >= 0) {
-    return orderIndex;
-  }
-
-  if (/utility|embedding|internal|1m|codex/i.test(model.id)) {
-    return 100;
-  }
-
-  return 50;
-}
-
-function matchesModelId(model: vscode.LanguageModelChat, modelId: string): boolean {
-  const id = stripCopilotVendorPrefix(modelId);
-  return model.id === id || model.id === modelId || model.family === id || model.id.endsWith(`/${id}`);
 }
 
 function uniqueModels(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
@@ -235,4 +215,20 @@ function errorToMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function withTimeout<T>(promise: Thenable<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
 }
