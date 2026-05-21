@@ -1,5 +1,10 @@
 import * as vscode from "vscode";
 import { logError, logInfo, logWarning } from "../logging";
+import {
+  copilotModelPreferenceToSelectors,
+  formatCopilotModelPreference,
+  isCopilotModelVendor
+} from "./copilotModels";
 import { ProviderError } from "./http";
 import { translationSystemPrompt, translationUserPrompt } from "./prompts";
 import type { AiTranslationProvider } from "./types";
@@ -10,9 +15,8 @@ export interface GitHubCopilotProviderConfig {
   accessInformation?: vscode.LanguageModelAccessInformation;
 }
 
-const autoCopilotModelIds = ["gpt-4.1"];
 const modelSelectionTimeoutMs = 10000;
-const unusableModelPattern = /embedding|embed|utility|internal|search|codex|1m/i;
+const unusableModelPattern = /embedding|embed|utility|internal|search/i;
 
 export function createGitHubCopilotProvider(config: GitHubCopilotProviderConfig): AiTranslationProvider {
   return {
@@ -104,53 +108,39 @@ async function translateWithModel(
 }
 
 async function selectCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
-  const requestedId = normalizeModelPreference(modelId);
-  const candidateIds = requestedId ? [requestedId] : autoCopilotModelIds;
+  const selectors = copilotModelPreferenceToSelectors(modelId);
 
-  for (const candidateId of candidateIds) {
-    const selected = await selectUsableCopilotModels(candidateId);
+  for (const selector of selectors) {
+    const selected = await selectUsableCopilotModels(selector);
     if (selected.length > 0) {
       return selected;
     }
   }
 
   throw new ProviderError(
-    `VS Code did not expose a usable GitHub Copilot chat model for ${candidateIds.join(", ")} within ${modelSelectionTimeoutMs}ms. ` +
+    `VS Code did not expose a usable GitHub Copilot chat model for ${selectors.map(formatCopilotModelPreference).join(", ")} within ${modelSelectionTimeoutMs}ms. ` +
       "Copilot Chat can be signed in while third-party Language Model API access is unavailable, blocked, or still resolving. " +
       "Run 'Markdown AI Translator: Connect GitHub Copilot' to choose another model, or switch to an API-key provider."
   );
 }
 
-async function selectUsableCopilotModels(modelId: string): Promise<vscode.LanguageModelChat[]> {
-  const id = stripCopilotVendorPrefix(modelId);
-  const selectors: vscode.LanguageModelChatSelector[] = [{ vendor: "copilot", id }];
+async function selectUsableCopilotModels(selector: vscode.LanguageModelChatSelector): Promise<vscode.LanguageModelChat[]> {
   const selected: vscode.LanguageModelChat[] = [];
 
-  for (const selector of selectors) {
-    try {
-      logInfo(`Selecting GitHub Copilot models with ${JSON.stringify(selector)}.`);
-      selected.push(
-        ...await withTimeout(
-          vscode.lm.selectChatModels(selector),
-          modelSelectionTimeoutMs,
-          `Timed out selecting GitHub Copilot models with ${JSON.stringify(selector)} after ${modelSelectionTimeoutMs}ms`
-        )
-      );
-    } catch (error) {
-      logWarning(`Failed to select GitHub Copilot models with ${JSON.stringify(selector)}: ${errorToMessage(error)}`);
-    }
+  try {
+    logInfo(`Selecting GitHub Copilot models with ${JSON.stringify(selector)}.`);
+    selected.push(
+      ...await withTimeout(
+        vscode.lm.selectChatModels(selector),
+        modelSelectionTimeoutMs,
+        `Timed out selecting GitHub Copilot models with ${JSON.stringify(selector)} after ${modelSelectionTimeoutMs}ms`
+      )
+    );
+  } catch (error) {
+    logWarning(`Failed to select GitHub Copilot models with ${JSON.stringify(selector)}: ${errorToMessage(error)}`);
   }
 
   return uniqueModels(selected.filter(isUsableCopilotChatModel));
-}
-
-function normalizeModelPreference(modelId: string): string {
-  const trimmed = modelId.trim();
-  return trimmed === "auto" ? "" : stripCopilotVendorPrefix(trimmed);
-}
-
-function stripCopilotVendorPrefix(modelId: string): string {
-  return modelId.startsWith("copilot/") ? modelId.slice("copilot/".length) : modelId;
 }
 
 function uniqueModels(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
@@ -177,7 +167,7 @@ export function isUsableCopilotChatModel(model: vscode.LanguageModelChat): boole
   if (unusableModelPattern.test(searchable)) {
     return false;
   }
-  return model.vendor === "copilot" && model.id !== "auto";
+  return isCopilotModelVendor(model.vendor);
 }
 
 function normalizeCopilotError(error: unknown, timeoutMs: number, model: vscode.LanguageModelChat): ProviderError {

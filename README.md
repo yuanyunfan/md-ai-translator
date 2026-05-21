@@ -23,7 +23,7 @@ Markdown AI Translator is a VS Code extension that opens a side-by-side translat
 
 - `mdAiTranslator.targetLanguage`: target translation language.
 - `mdAiTranslator.activeProvider`: `openai`, `azureOpenAI`, `anthropic`, or `githubCopilot`.
-- `mdAiTranslator.githubCopilot.modelId`: GitHub Copilot model dropdown. Use `auto` for fallback-based selection.
+- `mdAiTranslator.githubCopilot.modelId`: GitHub Copilot model dropdown. Prefer full `vendor/id` values such as `copilot/gpt-4.1` or `copilotcli/gpt-5.5`; legacy ids such as `gpt-5.5` are still accepted.
 - `mdAiTranslator.openai.baseUrl` and `mdAiTranslator.openai.model`.
 - `mdAiTranslator.azureOpenAI.endpoint`, `deployment`, and `apiVersion`.
 - `mdAiTranslator.anthropic.baseUrl` and `mdAiTranslator.anthropic.model`.
@@ -37,6 +37,8 @@ API keys are configured with commands:
 - `Markdown AI Translator: Select GitHub Copilot Model`
 
 GitHub Copilot does not require an API key in this extension. Use `Markdown AI Translator: Connect GitHub Copilot` to open the GitHub browser sign-in flow, then select one of the Copilot language models exposed by VS Code. If you choose GitHub Copilot from the API key provider list, the extension opens the same connection flow instead of asking for a key.
+
+Some Copilot models are exposed by VS Code as `copilot/...`, while newer Copilot CLI chat models can appear as `copilotcli/...`. The extension stores the full model id after you pick a model so translation requests hit the same provider that Copilot registered.
 
 When installing or updating a local VSIX, reload the active VS Code window before retrying translation. VS Code keeps already activated extension code in the running extension host until the window reloads.
 

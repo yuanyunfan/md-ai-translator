@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { credentialProviderIds, providerLabels, providerSecretKey, readExtensionConfig } from "./config";
 import { initializeLogger, logInfo } from "./logging";
+import { formatCopilotModelPreference, isCopilotModelVendor } from "./providers/copilotModels";
 import { isUsableCopilotChatModel } from "./providers/githubCopilot";
 import type { ProviderId } from "./providers/types";
 import { TranslationPreviewManager } from "./webview/panel";
@@ -154,12 +155,19 @@ async function selectCopilotModel(accountLabel: string): Promise<void> {
   let models: vscode.LanguageModelChat[];
   try {
     models = (await withTimeout(
-      vscode.lm.selectChatModels({ vendor: "copilot" }),
+      vscode.lm.selectChatModels(),
       copilotModelListTimeoutMs,
       `VS Code did not expose GitHub Copilot language models within ${copilotModelListTimeoutMs}ms.`
     ))
+      .filter((model) => isCopilotModelVendor(model.vendor))
       .filter(isUsableCopilotChatModel)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        const byName = a.name.localeCompare(b.name);
+        if (byName !== 0) {
+          return byName;
+        }
+        return `${a.vendor}/${a.id}`.localeCompare(`${b.vendor}/${b.id}`);
+      });
   } catch (error) {
     vscode.window.showErrorMessage(
       `${toUserMessage(error, "GitHub Copilot model discovery failed")} Copilot Chat may be signed in while Language Model API access for this extension is unavailable or still resolving.`
@@ -178,8 +186,8 @@ async function selectCopilotModel(accountLabel: string): Promise<void> {
   const picked = await vscode.window.showQuickPick(
     models.map((model) => ({
       label: model.name,
-      description: [model.family, model.version].filter(Boolean).join(" · "),
-      detail: model.id,
+      description: [model.vendor, model.family, model.version].filter(Boolean).join(" · "),
+      detail: formatCopilotModelPreference(model),
       model
     })),
     {
@@ -192,7 +200,7 @@ async function selectCopilotModel(accountLabel: string): Promise<void> {
   }
 
   const cfg = vscode.workspace.getConfiguration("mdAiTranslator");
-  await cfg.update("githubCopilot.modelId", picked.model.id, vscode.ConfigurationTarget.Global);
+  await cfg.update("githubCopilot.modelId", formatCopilotModelPreference(picked.model), vscode.ConfigurationTarget.Global);
   await cfg.update("activeProvider", "githubCopilot", vscode.ConfigurationTarget.Global);
   vscode.window.showInformationMessage(`Connected GitHub Copilot as ${accountLabel}. Model selected: ${picked.model.name}`);
 }
