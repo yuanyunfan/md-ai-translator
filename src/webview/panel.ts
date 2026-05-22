@@ -271,7 +271,7 @@ class TranslationPreviewPanel {
     return {
       cspSource: this.panel.webview.cspSource,
       mermaidScriptUri: this.panel.webview
-        .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "node_modules", "mermaid", "dist", "mermaid.min.js"))
+        .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "dist", "mermaid.min.js"))
         .toString()
     };
   }
