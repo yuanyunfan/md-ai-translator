@@ -1,6 +1,7 @@
 export interface WebviewState {
   sourceHtml: string;
   translatedHtml: string;
+  translatedMarkdown: string;
   statusText: string;
   statusKind: "idle" | "loading" | "success" | "warning" | "error";
   providerLabel: string;
@@ -248,6 +249,7 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
     </div>
     <div class="actions">
       <button id="refresh" title="Refresh translation">Refresh</button>
+      <button id="exportTranslation" class="secondary" title="Export translated Markdown">Export</button>
       <button id="connectProvider" class="secondary" title="Connect an AI provider">Connect</button>
       <button id="selectModel" class="secondary" title="Select provider model">Model</button>
       <button id="settings" class="secondary" title="Open settings">Settings</button>

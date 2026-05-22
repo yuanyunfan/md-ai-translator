@@ -7,6 +7,7 @@ export {};
 interface WebviewState {
   sourceHtml: string;
   translatedHtml: string;
+  translatedMarkdown: string;
   statusText: string;
   statusKind: "idle" | "loading" | "success" | "warning" | "error";
   providerLabel: string;
@@ -45,6 +46,7 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 bindButton("refresh", { type: "refresh" });
+bindButton("exportTranslation", { type: "exportTranslation" });
 bindButton("connectProvider", { type: "connectProvider" });
 bindButton("selectModel", { type: "selectModel" });
 bindButton("settings", { type: "openSettings" });
@@ -81,6 +83,9 @@ function render(state: WebviewState): void {
   const refresh = requiredElement("refresh") as HTMLButtonElement;
   refresh.disabled = state.statusKind === "loading";
   refresh.setAttribute("aria-busy", state.statusKind === "loading" ? "true" : "false");
+
+  const exportTranslation = requiredElement("exportTranslation") as HTMLButtonElement;
+  exportTranslation.disabled = state.statusKind === "loading" || state.translatedMarkdown.trim().length === 0;
 
   requiredElement("source").innerHTML = state.sourceHtml || '<p class="placeholder">No source content.</p>';
   requiredElement("translated").innerHTML = state.translatedHtml || '<p class="placeholder">Translation will appear here.</p>';

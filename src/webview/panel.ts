@@ -91,6 +91,7 @@ class TranslationPreviewPanel {
     this.state = {
       sourceHtml: this.renderer.render(document.getText()),
       translatedHtml: "",
+      translatedMarkdown: "",
       statusText: "Ready",
       statusKind: "idle",
       providerLabel: providerLabels[config.activeProvider],
@@ -135,6 +136,7 @@ class TranslationPreviewPanel {
       ...this.state,
       sourceHtml: this.renderer.render(document.getText()),
       translatedHtml: this.state.translatedHtml,
+      translatedMarkdown: this.state.translatedMarkdown,
       statusText: "Source changed. Refresh to update translation.",
       statusKind: "warning"
     };
@@ -167,6 +169,7 @@ class TranslationPreviewPanel {
         ...this.state,
         sourceHtml: this.renderer.render(document.getText()),
         translatedHtml: "",
+        translatedMarkdown: "",
         providerLabel: providerLabels[config.activeProvider],
         targetLanguage: config.targetLanguage,
         statusText: "Preparing translation...",
@@ -217,6 +220,7 @@ class TranslationPreviewPanel {
       this.state = {
         ...this.state,
         translatedHtml: this.renderer.render(translatedMarkdown),
+        translatedMarkdown,
         statusText: "Translation ready",
         statusKind: "success"
       };
@@ -230,6 +234,7 @@ class TranslationPreviewPanel {
       this.state = {
         ...this.state,
         translatedHtml: "",
+        translatedMarkdown: "",
         statusText: `${toUserMessage(error)} See Output: Markdown AI Translator.`,
         statusKind: "error"
       };
@@ -248,6 +253,9 @@ class TranslationPreviewPanel {
     switch (message.type) {
       case "refresh":
         await this.refresh();
+        break;
+      case "exportTranslation":
+        await this.exportTranslation();
         break;
       case "connectProvider":
         await vscode.commands.executeCommand("mdAiTranslator.connectProvider");
@@ -296,6 +304,51 @@ class TranslationPreviewPanel {
         break;
     }
   }
+
+  private async exportTranslation(): Promise<void> {
+    if (this.state.translatedMarkdown.trim().length === 0) {
+      vscode.window.showWarningMessage("No translated Markdown is available to export yet.");
+      return;
+    }
+
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: this.defaultExportUri(),
+      filters: {
+        Markdown: ["md", "markdown"],
+        "Plain Text": ["txt"]
+      },
+      saveLabel: "Export Translation",
+      title: "Export translated Markdown"
+    });
+
+    if (!target) {
+      return;
+    }
+
+    await vscode.workspace.fs.writeFile(target, Buffer.from(this.state.translatedMarkdown, "utf8"));
+    logInfo(`Exported translated Markdown for ${this.documentName} to ${target.fsPath || target.toString()}.`);
+
+    const open = "Open";
+    const picked = await vscode.window.showInformationMessage(`Translation exported to ${path.basename(target.fsPath || target.path)}.`, open);
+    if (picked === open) {
+      const document = await vscode.workspace.openTextDocument(target);
+      await vscode.window.showTextDocument(document, vscode.ViewColumn.Active);
+    }
+  }
+
+  private defaultExportUri(): vscode.Uri {
+    const exportName = defaultExportFileName(this.documentName, this.state.targetLanguage);
+    if (this.documentUri.scheme === "file") {
+      return vscode.Uri.file(path.join(path.dirname(this.documentUri.fsPath), exportName));
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+      return vscode.Uri.joinPath(workspaceFolder.uri, exportName);
+    }
+
+    return vscode.Uri.file(path.join(process.cwd(), exportName));
+  }
 }
 
 function toUserMessage(error: unknown): string {
@@ -306,4 +359,35 @@ function toUserMessage(error: unknown): string {
     return error.message;
   }
   return "Translation failed";
+}
+
+function defaultExportFileName(documentName: string, targetLanguage: string): string {
+  const parsed = path.parse(documentName);
+  const base = parsed.name || documentName || "translation";
+  const extension = parsed.ext || ".md";
+  return `${base}.${languageSuffix(targetLanguage)}${extension}`;
+}
+
+function languageSuffix(targetLanguage: string): string {
+  const normalized = targetLanguage.trim().toLowerCase();
+  const known: Record<string, string> = {
+    "simplified chinese": "zh-CN",
+    "traditional chinese": "zh-TW",
+    english: "en",
+    japanese: "ja",
+    korean: "ko",
+    french: "fr",
+    german: "de",
+    spanish: "es",
+    portuguese: "pt",
+    italian: "it",
+    russian: "ru",
+    arabic: "ar",
+    hindi: "hi",
+    vietnamese: "vi",
+    thai: "th",
+    indonesian: "id"
+  };
+
+  return known[normalized] ?? (normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "translated");
 }

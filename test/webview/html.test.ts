@@ -6,6 +6,7 @@ test("getWebviewHtml embeds initial state without inline JSON literals", () => {
   const state: WebviewState = {
     sourceHtml: "<h1>Source</h1>",
     translatedHtml: "",
+    translatedMarkdown: "",
     statusText: "Ready",
     statusKind: "idle",
     providerLabel: "Mock",
@@ -24,4 +25,5 @@ test("getWebviewHtml embeds initial state without inline JSON literals", () => {
   assert.doesNotMatch(html, /const initialStateBase64/);
   assert.match(html, /data-mermaid-script-uri="vscode-webview:\/\/example\/dist\/mermaid\.min\.js"/);
   assert.match(html, /<script nonce="[A-Za-z0-9]+" src="vscode-webview:\/\/example\/dist\/webview\.js"><\/script>/);
+  assert.match(html, /id="exportTranslation"/);
 });
