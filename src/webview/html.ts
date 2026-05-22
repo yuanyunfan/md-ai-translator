@@ -15,7 +15,8 @@ export interface WebviewAssets {
 
 export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): string {
   const nonce = createNonce();
-  const encodedState = JSON.stringify(state).replace(/</g, "\\u003c");
+  const encodedState = Buffer.from(JSON.stringify(state), "utf8").toString("base64");
+  const encodedMermaidScriptUri = JSON.stringify(assets.mermaidScriptUri).replace(/</g, "\\u003c");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -262,12 +263,22 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
       <article id="translated" class="content"></article>
     </section>
   </div>
-  <script nonce="${nonce}" src="${assets.mermaidScriptUri}"></script>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    const initialState = ${encodedState};
+    const initialStateBase64 = "${encodedState}";
+    const mermaidScriptUri = ${encodedMermaidScriptUri};
     let mermaidTheme = "";
     let mermaidRenderId = 0;
+    let mermaidLoading = false;
+    let mermaidLoadAttempted = false;
+
+    window.addEventListener("error", (event) => {
+      postLog("error", "webview error: " + formatError(event.error || event.message));
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      postLog("error", "webview unhandled rejection: " + formatError(event.reason));
+    });
 
     document.getElementById("refresh").addEventListener("click", () => {
       vscode.postMessage({ type: "refresh" });
@@ -288,7 +299,14 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
       }
     });
 
-    render(initialState);
+    try {
+      postLog("info", "webview init started");
+      render(readInitialState());
+      postLog("info", "webview init rendered");
+    } catch (error) {
+      postLog("error", "webview init failed: " + formatError(error));
+      renderFallback(error);
+    }
 
     function render(state) {
       document.getElementById("document").textContent = state.documentName;
@@ -302,14 +320,45 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
       refresh.setAttribute("aria-busy", state.statusKind === "loading" ? "true" : "false");
       document.getElementById("source").innerHTML = state.sourceHtml || '<p class="placeholder">No source content.</p>';
       document.getElementById("translated").innerHTML = state.translatedHtml || '<p class="placeholder">Translation will appear here.</p>';
-      renderMermaidDiagrams();
+      loadMermaidIfNeeded();
     }
 
-    function renderMermaidDiagrams() {
-      if (!window.mermaid) {
+    function readInitialState() {
+      const binary = atob(initialStateBase64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+
+    function loadMermaidIfNeeded() {
+      const hasMermaid = Boolean(document.querySelector(".mermaid"));
+      if (!hasMermaid) {
+        return;
+      }
+      if (window.mermaid) {
+        renderMermaidDiagrams();
+        return;
+      }
+      if (mermaidLoading || mermaidLoadAttempted) {
         return;
       }
 
+      mermaidLoading = true;
+      mermaidLoadAttempted = true;
+      const script = document.createElement("script");
+      script.src = mermaidScriptUri;
+      script.onload = () => {
+        mermaidLoading = false;
+        postLog("info", "mermaid script loaded");
+        renderMermaidDiagrams();
+      };
+      script.onerror = () => {
+        mermaidLoading = false;
+        postLog("error", "mermaid script failed to load: " + mermaidScriptUri);
+      };
+      document.head.appendChild(script);
+    }
+
+    function renderMermaidDiagrams() {
       const diagrams = Array.from(document.querySelectorAll(".mermaid")).filter((node) => !node.dataset.rendered);
       if (diagrams.length === 0) {
         return;
@@ -349,6 +398,36 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
             node.classList.add("mermaid-error");
             node.replaceChildren(message, pre);
           });
+    }
+
+    function renderFallback(error) {
+      document.getElementById("status").textContent = "Preview render failed. See Output: Markdown AI Translator.";
+      document.getElementById("status").className = "status error";
+      document.getElementById("source").innerHTML = '<p class="placeholder">Preview render failed.</p>';
+      document.getElementById("translated").innerHTML = '<p class="placeholder">' + escapeHtml(formatError(error)) + '</p>';
+    }
+
+    function postLog(level, message) {
+      try {
+        vscode.postMessage({ type: "webviewLog", level, message });
+      } catch {
+        // Logging must never break preview rendering.
+      }
+    }
+
+    function formatError(error) {
+      if (error instanceof Error) {
+        return error.stack || error.message;
+      }
+      return String(error);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
   </script>
 </body>

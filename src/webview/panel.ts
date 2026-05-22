@@ -111,7 +111,7 @@ class TranslationPreviewPanel {
       this.context.subscriptions
     );
     this.panel.webview.onDidReceiveMessage(
-      (message: { type?: string }) => {
+      (message: { type?: string; level?: string; message?: string }) => {
         void this.handleMessage(message);
       },
       undefined,
@@ -244,7 +244,7 @@ class TranslationPreviewPanel {
     }
   }
 
-  private async handleMessage(message: { type?: string }): Promise<void> {
+  private async handleMessage(message: { type?: string; level?: string; message?: string }): Promise<void> {
     switch (message.type) {
       case "refresh":
         await this.refresh();
@@ -260,6 +260,9 @@ class TranslationPreviewPanel {
       case "openSettings":
         await vscode.commands.executeCommand("workbench.action.openSettings", "mdAiTranslator");
         break;
+      case "webviewLog":
+        this.logWebviewMessage(message);
+        break;
     }
   }
 
@@ -274,6 +277,21 @@ class TranslationPreviewPanel {
         .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "dist", "mermaid.min.js"))
         .toString()
     };
+  }
+
+  private logWebviewMessage(message: { level?: string; message?: string }): void {
+    const text = `Webview ${this.documentName}: ${message.message ?? ""}`;
+    switch (message.level) {
+      case "error":
+        logError(text);
+        break;
+      case "warn":
+        logInfo(text);
+        break;
+      default:
+        logInfo(text);
+        break;
+    }
   }
 }
 
