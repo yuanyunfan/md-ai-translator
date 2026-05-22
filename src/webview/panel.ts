@@ -30,7 +30,8 @@ export class TranslationPreviewManager {
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
-        retainContextWhenHidden: true
+        retainContextWhenHidden: true,
+        localResourceRoots: [this.context.extensionUri]
       }
     );
 
@@ -97,7 +98,7 @@ class TranslationPreviewPanel {
       documentName: this.documentName
     };
 
-    this.panel.webview.html = getWebviewHtml(this.state);
+    this.panel.webview.html = getWebviewHtml(this.state, this.webviewAssets());
 
     this.panel.onDidDispose(onDispose, undefined, this.context.subscriptions);
     this.panel.onDidChangeViewState(
@@ -264,6 +265,15 @@ class TranslationPreviewPanel {
 
   private postState(): void {
     void this.panel.webview.postMessage({ type: "state", state: this.state });
+  }
+
+  private webviewAssets(): { cspSource: string; mermaidScriptUri: string } {
+    return {
+      cspSource: this.panel.webview.cspSource,
+      mermaidScriptUri: this.panel.webview
+        .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "node_modules", "mermaid", "dist", "mermaid.min.js"))
+        .toString()
+    };
   }
 }
 

@@ -58,3 +58,22 @@ test("translateMarkdownDocument preserves non-translatable chunks", async () => 
   assert.match(translated, /# HELLO/);
   assert.match(translated, /console\.log\('hello'\);/);
 });
+
+test("translateMarkdownDocument unwraps whole-response markdown fences", async () => {
+  const provider: AiTranslationProvider = {
+    id: "openai",
+    label: "Mock",
+    async translateChunk() {
+      return ["```markdown", "# Resumen", "", "Texto traducido.", "```"].join("\n");
+    }
+  };
+
+  const translated = await translateMarkdownDocument({
+    markdown: "# Summary\n\nTranslated text.",
+    targetLanguage: "Spanish",
+    provider,
+    maxChunkChars: 1000
+  });
+
+  assert.equal(translated, "# Resumen\n\nTexto traducido.");
+});

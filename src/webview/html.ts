@@ -8,7 +8,12 @@ export interface WebviewState {
   documentName: string;
 }
 
-export function getWebviewHtml(state: WebviewState): string {
+export interface WebviewAssets {
+  cspSource: string;
+  mermaidScriptUri: string;
+}
+
+export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): string {
   const nonce = createNonce();
   const encodedState = JSON.stringify(state).replace(/</g, "\\u003c");
 
@@ -17,7 +22,7 @@ export function getWebviewHtml(state: WebviewState): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${assets.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${assets.cspSource};">
   <title>Markdown AI Translation Preview</title>
   <style>
     :root {
@@ -185,6 +190,32 @@ export function getWebviewHtml(state: WebviewState): string {
       padding: 6px 8px;
     }
 
+    .content .mermaid {
+      margin: 1em 0;
+      overflow-x: auto;
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
+      text-align: center;
+    }
+
+    .content .mermaid svg {
+      max-width: 100%;
+      height: auto;
+      background: transparent;
+    }
+
+    .content .mermaid-error {
+      padding: 12px;
+      border-left: 3px solid var(--vscode-editorError-foreground);
+      text-align: left;
+    }
+
+    .content .mermaid-error-message {
+      margin: 0 0 8px;
+      color: var(--vscode-editorError-foreground);
+      font-weight: 600;
+    }
+
     .placeholder {
       color: var(--vscode-descriptionForeground);
       font-style: italic;
@@ -231,9 +262,12 @@ export function getWebviewHtml(state: WebviewState): string {
       <article id="translated" class="content"></article>
     </section>
   </div>
+  <script nonce="${nonce}" src="${assets.mermaidScriptUri}"></script>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const initialState = ${encodedState};
+    let mermaidTheme = "";
+    let mermaidRenderId = 0;
 
     document.getElementById("refresh").addEventListener("click", () => {
       vscode.postMessage({ type: "refresh" });
@@ -268,6 +302,53 @@ export function getWebviewHtml(state: WebviewState): string {
       refresh.setAttribute("aria-busy", state.statusKind === "loading" ? "true" : "false");
       document.getElementById("source").innerHTML = state.sourceHtml || '<p class="placeholder">No source content.</p>';
       document.getElementById("translated").innerHTML = state.translatedHtml || '<p class="placeholder">Translation will appear here.</p>';
+      renderMermaidDiagrams();
+    }
+
+    function renderMermaidDiagrams() {
+      if (!window.mermaid) {
+        return;
+      }
+
+      const diagrams = Array.from(document.querySelectorAll(".mermaid")).filter((node) => !node.dataset.rendered);
+      if (diagrams.length === 0) {
+        return;
+      }
+
+      const theme = document.body.classList.contains("vscode-dark") || document.body.classList.contains("vscode-high-contrast")
+        ? "dark"
+        : "default";
+      if (mermaidTheme !== theme) {
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme,
+          securityLevel: "strict"
+        });
+        mermaidTheme = theme;
+      }
+
+      for (const node of diagrams) {
+        const source = node.textContent || "";
+        node.dataset.rendered = "true";
+        const id = "md-ai-translator-mermaid-" + String(mermaidRenderId++);
+        void window.mermaid.render(id, source)
+          .then((result) => {
+            node.innerHTML = result.svg;
+            if (typeof result.bindFunctions === "function") {
+              result.bindFunctions(node);
+            }
+          })
+          .catch((error) => {
+            const message = document.createElement("p");
+            message.className = "mermaid-error-message";
+            message.textContent = "Mermaid render failed: " + (error instanceof Error ? error.message : String(error));
+            const code = document.createElement("code");
+            code.textContent = source;
+            const pre = document.createElement("pre");
+            pre.appendChild(code);
+            node.classList.add("mermaid-error");
+            node.replaceChildren(message, pre);
+          });
     }
   </script>
 </body>

@@ -4,6 +4,7 @@ export function translationSystemPrompt(): string {
     "Translate Markdown to the requested target language.",
     "Preserve Markdown structure, heading levels, lists, tables, links, link targets, inline code, and formatting.",
     "Do not translate fenced code block contents, YAML frontmatter, URLs, file paths, command names, environment variable names, API identifiers, or placeholders.",
+    "Do not wrap the response in a Markdown code fence.",
     "Return only the translated Markdown with no commentary."
   ].join(" ");
 }
