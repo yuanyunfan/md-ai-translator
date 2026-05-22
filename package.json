@@ -29,7 +29,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "compile": "tsc -p .",
-    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --sourcemap && node -e \"const fs=require('fs'); fs.copyFileSync(require.resolve('mermaid/dist/mermaid.min.js'), 'dist/mermaid.min.js');\"",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --sourcemap && esbuild src/webview/client.ts --bundle --platform=browser --format=iife --target=chrome120 --outfile=dist/webview.js && node -e \"const fs=require('fs'); fs.copyFileSync(require.resolve('mermaid/dist/mermaid.min.js'), 'dist/mermaid.min.js');\"",
     "build": "npm run compile && npm run bundle",
     "watch": "tsc -watch -p .",
     "test": "npm run compile && node --test \"dist/test/**/*.test.js\"",

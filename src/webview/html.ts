@@ -11,19 +11,19 @@ export interface WebviewState {
 export interface WebviewAssets {
   cspSource: string;
   mermaidScriptUri: string;
+  webviewScriptUri: string;
 }
 
 export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): string {
   const nonce = createNonce();
   const encodedState = Buffer.from(JSON.stringify(state), "utf8").toString("base64");
-  const encodedMermaidScriptUri = JSON.stringify(assets.mermaidScriptUri).replace(/</g, "\\u003c");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${assets.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${assets.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${assets.cspSource}; style-src 'unsafe-inline'; script-src ${assets.cspSource};">
   <title>Markdown AI Translation Preview</title>
   <style>
     :root {
@@ -238,7 +238,7 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
     }
   </style>
 </head>
-<body>
+<body data-initial-state="${encodedState}" data-mermaid-script-uri="${escapeHtmlAttribute(assets.mermaidScriptUri)}">
   <div class="toolbar">
     <div class="meta">
       <span id="document" class="document"></span>
@@ -263,173 +263,7 @@ export function getWebviewHtml(state: WebviewState, assets: WebviewAssets): stri
       <article id="translated" class="content"></article>
     </section>
   </div>
-  <script nonce="${nonce}">
-    const vscode = acquireVsCodeApi();
-    const initialStateBase64 = "${encodedState}";
-    const mermaidScriptUri = ${encodedMermaidScriptUri};
-    let mermaidTheme = "";
-    let mermaidRenderId = 0;
-    let mermaidLoading = false;
-    let mermaidLoadAttempted = false;
-
-    window.addEventListener("error", (event) => {
-      postLog("error", "webview error: " + formatError(event.error || event.message));
-    });
-
-    window.addEventListener("unhandledrejection", (event) => {
-      postLog("error", "webview unhandled rejection: " + formatError(event.reason));
-    });
-
-    document.getElementById("refresh").addEventListener("click", () => {
-      vscode.postMessage({ type: "refresh" });
-    });
-    document.getElementById("connectProvider").addEventListener("click", () => {
-      vscode.postMessage({ type: "connectProvider" });
-    });
-    document.getElementById("selectModel").addEventListener("click", () => {
-      vscode.postMessage({ type: "selectModel" });
-    });
-    document.getElementById("settings").addEventListener("click", () => {
-      vscode.postMessage({ type: "openSettings" });
-    });
-
-    window.addEventListener("message", (event) => {
-      if (event.data?.type === "state") {
-        render(event.data.state);
-      }
-    });
-
-    try {
-      postLog("info", "webview init started");
-      render(readInitialState());
-      postLog("info", "webview init rendered");
-    } catch (error) {
-      postLog("error", "webview init failed: " + formatError(error));
-      renderFallback(error);
-    }
-
-    function render(state) {
-      document.getElementById("document").textContent = state.documentName;
-      document.getElementById("provider").textContent = state.providerLabel;
-      document.getElementById("language").textContent = "→ " + state.targetLanguage;
-      const status = document.getElementById("status");
-      status.textContent = state.statusText;
-      status.className = "status " + state.statusKind;
-      const refresh = document.getElementById("refresh");
-      refresh.disabled = state.statusKind === "loading";
-      refresh.setAttribute("aria-busy", state.statusKind === "loading" ? "true" : "false");
-      document.getElementById("source").innerHTML = state.sourceHtml || '<p class="placeholder">No source content.</p>';
-      document.getElementById("translated").innerHTML = state.translatedHtml || '<p class="placeholder">Translation will appear here.</p>';
-      loadMermaidIfNeeded();
-    }
-
-    function readInitialState() {
-      const binary = atob(initialStateBase64);
-      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-      return JSON.parse(new TextDecoder().decode(bytes));
-    }
-
-    function loadMermaidIfNeeded() {
-      const hasMermaid = Boolean(document.querySelector(".mermaid"));
-      if (!hasMermaid) {
-        return;
-      }
-      if (window.mermaid) {
-        renderMermaidDiagrams();
-        return;
-      }
-      if (mermaidLoading || mermaidLoadAttempted) {
-        return;
-      }
-
-      mermaidLoading = true;
-      mermaidLoadAttempted = true;
-      const script = document.createElement("script");
-      script.src = mermaidScriptUri;
-      script.onload = () => {
-        mermaidLoading = false;
-        postLog("info", "mermaid script loaded");
-        renderMermaidDiagrams();
-      };
-      script.onerror = () => {
-        mermaidLoading = false;
-        postLog("error", "mermaid script failed to load: " + mermaidScriptUri);
-      };
-      document.head.appendChild(script);
-    }
-
-    function renderMermaidDiagrams() {
-      const diagrams = Array.from(document.querySelectorAll(".mermaid")).filter((node) => !node.dataset.rendered);
-      if (diagrams.length === 0) {
-        return;
-      }
-
-      const theme = document.body.classList.contains("vscode-dark") || document.body.classList.contains("vscode-high-contrast")
-        ? "dark"
-        : "default";
-      if (mermaidTheme !== theme) {
-        window.mermaid.initialize({
-          startOnLoad: false,
-          theme,
-          securityLevel: "strict"
-        });
-        mermaidTheme = theme;
-      }
-
-      for (const node of diagrams) {
-        const source = node.textContent || "";
-        node.dataset.rendered = "true";
-        const id = "md-ai-translator-mermaid-" + String(mermaidRenderId++);
-        void window.mermaid.render(id, source)
-          .then((result) => {
-            node.innerHTML = result.svg;
-            if (typeof result.bindFunctions === "function") {
-              result.bindFunctions(node);
-            }
-          })
-          .catch((error) => {
-            const message = document.createElement("p");
-            message.className = "mermaid-error-message";
-            message.textContent = "Mermaid render failed: " + (error instanceof Error ? error.message : String(error));
-            const code = document.createElement("code");
-            code.textContent = source;
-            const pre = document.createElement("pre");
-            pre.appendChild(code);
-            node.classList.add("mermaid-error");
-            node.replaceChildren(message, pre);
-          });
-    }
-
-    function renderFallback(error) {
-      document.getElementById("status").textContent = "Preview render failed. See Output: Markdown AI Translator.";
-      document.getElementById("status").className = "status error";
-      document.getElementById("source").innerHTML = '<p class="placeholder">Preview render failed.</p>';
-      document.getElementById("translated").innerHTML = '<p class="placeholder">' + escapeHtml(formatError(error)) + '</p>';
-    }
-
-    function postLog(level, message) {
-      try {
-        vscode.postMessage({ type: "webviewLog", level, message });
-      } catch {
-        // Logging must never break preview rendering.
-      }
-    }
-
-    function formatError(error) {
-      if (error instanceof Error) {
-        return error.stack || error.message;
-      }
-      return String(error);
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-  </script>
+  <script nonce="${nonce}" src="${assets.webviewScriptUri}"></script>
 </body>
 </html>`;
 }
@@ -441,4 +275,12 @@ function createNonce(): string {
     text += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return text;
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

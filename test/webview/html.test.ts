@@ -15,11 +15,13 @@ test("getWebviewHtml embeds initial state without inline JSON literals", () => {
 
   const html = getWebviewHtml(state, {
     cspSource: "vscode-webview://example",
-    mermaidScriptUri: "vscode-webview://example/dist/mermaid.min.js"
+    mermaidScriptUri: "vscode-webview://example/dist/mermaid.min.js",
+    webviewScriptUri: "vscode-webview://example/dist/webview.js"
   });
 
-  assert.match(html, /const initialStateBase64 = "[A-Za-z0-9+/=]+"/);
+  assert.match(html, /data-initial-state="[A-Za-z0-9+/=]+"/);
   assert.doesNotMatch(html, /const initialState = \{/);
-  assert.match(html, /webview init failed/);
-  assert.match(html, /mermaidScriptUri = "vscode-webview:\/\/example\/dist\/mermaid\.min\.js"/);
+  assert.doesNotMatch(html, /const initialStateBase64/);
+  assert.match(html, /data-mermaid-script-uri="vscode-webview:\/\/example\/dist\/mermaid\.min\.js"/);
+  assert.match(html, /<script nonce="[A-Za-z0-9]+" src="vscode-webview:\/\/example\/dist\/webview\.js"><\/script>/);
 });

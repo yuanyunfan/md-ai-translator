@@ -270,11 +270,14 @@ class TranslationPreviewPanel {
     void this.panel.webview.postMessage({ type: "state", state: this.state });
   }
 
-  private webviewAssets(): { cspSource: string; mermaidScriptUri: string } {
+  private webviewAssets(): { cspSource: string; mermaidScriptUri: string; webviewScriptUri: string } {
     return {
       cspSource: this.panel.webview.cspSource,
       mermaidScriptUri: this.panel.webview
         .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "dist", "mermaid.min.js"))
+        .toString(),
+      webviewScriptUri: this.panel.webview
+        .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.js"))
         .toString()
     };
   }
