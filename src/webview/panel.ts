@@ -371,7 +371,7 @@ function defaultExportFileName(documentName: string, targetLanguage: string): st
 function languageSuffix(targetLanguage: string): string {
   const normalized = targetLanguage.trim().toLowerCase();
   const known: Record<string, string> = {
-    "simplified chinese": "zh-CN",
+    "simplified chinese": "zh",
     "traditional chinese": "zh-TW",
     english: "en",
     japanese: "ja",
